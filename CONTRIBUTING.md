@@ -2,7 +2,7 @@
 ## Repository branch structure
 
 - main-ros2  
-This is the latest stable version of Eagleye ROS2. It is updated every three months. 
+This is the latest stable version of Eagleye ROS2. 
 - develop-ros2  
 This is a branch to reflect changes in develop-ros1 to ros2 as well.  
 If contributors wish to add functionality to eagleye, they should create a new branch from this develop branch and submit a pull request.
