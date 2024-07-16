@@ -278,6 +278,7 @@ void heading_estimate(rtklib_msgs::msg::RtklibNav rtklib_nav,sensor_msgs::msg::I
   }
 
   doppler_heading_angle = std::atan2(enu_vel[0], enu_vel[1]);
+  doppler_heading_angle = doppler_heading_angle - 0.0148641; // Fix Meridean Convergence
 
   if(doppler_heading_angle<0){
     doppler_heading_angle = doppler_heading_angle + 2*M_PI;

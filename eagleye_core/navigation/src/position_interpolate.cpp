@@ -173,9 +173,9 @@ void position_interpolate_estimate(eagleye_msgs::msg::Position enu_absolute_pos,
     eagleye_fix->altitude = llh_pos[2];
 
     // TODO(Map IV): temporary covariance value
-    eagleye_fix->position_covariance[0] = 0.15 * 0.15; // [m^2]
-    eagleye_fix->position_covariance[4] = 0.15 * 0.15; // [m^2]
-    eagleye_fix->position_covariance[8] = 0.15 * 0.15; // [m^2]
+    eagleye_fix->position_covariance[0] = 1.0 * 1.0; // [m^2]
+    eagleye_fix->position_covariance[4] = 1.0 * 1.0; // [m^2]
+    eagleye_fix->position_covariance[8] = 1.0 * 1.0; // [m^2]
 
   }
   else
