@@ -34,74 +34,74 @@
 #include "eagleye_coordinate/eagleye_coordinate.hpp"
 #include "eagleye_navigation/eagleye_navigation.hpp"
 
-rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr velocity_pub;
-rclcpp::Publisher<eagleye_msgs::msg::StatusStamped>::SharedPtr velocity_status_pub;
-
-static rtklib_msgs::msg::RtklibNav rtklib_nav_msg;
-static nmea_msgs::msg::Gpgga gga_msg;
-static sensor_msgs::msg::Imu imu_msg;
-
-VelocityEstimator velocity_estimator;
-static geometry_msgs::msg::TwistStamped velocity_msg;
-
-static std::string yaml_file;
-static std::string subscribe_rtklib_nav_topic_name = "gnss/rtklib_nav";
-static std::string subscribe_gga_topic_name = "gnss/gga";
-
-void rtklib_nav_callback(const rtklib_msgs::msg::RtklibNav::ConstSharedPtr msg)
+class VelocityEstimatorNode: public rclcpp::Node
 {
-  rtklib_nav_msg = *msg;
-}
-
-void gga_callback(const nmea_msgs::msg::Gpgga::ConstSharedPtr msg)
-{
-  gga_msg = *msg;
-}
-
-void imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
-{
-  imu_msg = *msg;
-
-  velocity_estimator.VelocityEstimate(imu_msg, rtklib_nav_msg, gga_msg, &velocity_msg);
-
-  eagleye_msgs::msg::StatusStamped velocity_status;
-  velocity_status.header = msg->header;
-  velocity_status.status = velocity_estimator.getStatus();
-  velocity_status_pub->publish(velocity_status);
-
-  if(velocity_status.status.enabled_status)
+public:
+  VelocityEstimatorNode(const rclcpp::NodeOptions & options)
+  : Node("velocity_estimator_node", options)
   {
-    velocity_pub->publish(velocity_msg);
+    this->declare_parameter("yaml_file",yaml_file);
+    this->get_parameter("yaml_file",yaml_file);
+
+    velocity_estimator.setParam(yaml_file);
+
+    rtklib_sub =
+        this->create_subscription<rtklib_msgs::msg::RtklibNav>(subscribe_rtklib_nav_topic_name, 1000, std::bind(&VelocityEstimatorNode::rtklib_nav_callback, this, std::placeholders::_1));
+    gga_sub = 
+        this->create_subscription<nmea_msgs::msg::Gpgga>(subscribe_gga_topic_name, 1000, std::bind(&VelocityEstimatorNode::gga_callback, this, std::placeholders::_1));
+    imu_sub =
+        this->create_subscription<sensor_msgs::msg::Imu>("imu/data_tf_converted", 1000, std::bind(&VelocityEstimatorNode::imu_callback, this, std::placeholders::_1));
+
+    velocity_pub = this->create_publisher<geometry_msgs::msg::TwistStamped>("velocity", 1000);
+    velocity_status_pub = this->create_publisher<eagleye_msgs::msg::StatusStamped>("velocity_status", 1000);
+  }
+private:
+  void rtklib_nav_callback(const rtklib_msgs::msg::RtklibNav::ConstSharedPtr msg)
+  {
+    rtklib_nav_msg = *msg;
   }
 
-}
+  void gga_callback(const nmea_msgs::msg::Gpgga::ConstSharedPtr msg)
+  {
+    gga_msg = *msg;
+  }
 
-void velocity_estimator_node(rclcpp::Node::SharedPtr node)
-{
-  node->declare_parameter("yaml_file",yaml_file);
-  node->get_parameter("yaml_file",yaml_file);
+  void imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
+  {
+    imu_msg = *msg;
 
-  velocity_estimator.setParam(yaml_file);
+    velocity_estimator.VelocityEstimate(imu_msg, rtklib_nav_msg, gga_msg, &velocity_msg);
 
-  auto rtklib_sub =
-      node->create_subscription<rtklib_msgs::msg::RtklibNav>(subscribe_rtklib_nav_topic_name, 1000, rtklib_nav_callback);
-  auto gga_sub = 
-      node->create_subscription<nmea_msgs::msg::Gpgga>(subscribe_gga_topic_name, 1000, gga_callback);
-  auto imu_sub =
-      node->create_subscription<sensor_msgs::msg::Imu>("imu/data_tf_converted", 1000, imu_callback);
+    eagleye_msgs::msg::StatusStamped velocity_status;
+    velocity_status.header = msg->header;
+    velocity_status.status = velocity_estimator.getStatus();
+    velocity_status_pub->publish(velocity_status);
 
-  velocity_pub = node->create_publisher<geometry_msgs::msg::TwistStamped>("velocity", 1000);
-  velocity_status_pub = node->create_publisher<eagleye_msgs::msg::StatusStamped>("velocity_status", 1000);
+    if(velocity_status.status.enabled_status)
+    {
+      velocity_pub->publish(velocity_msg);
+    }
 
-  rclcpp::spin(node);
-}
+  }
 
-int main(int argc, char** argv)
-{
-  rclcpp::init(argc, argv);
-  auto node = rclcpp::Node::make_shared("eagleye_velocity_estimator");
+  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr velocity_pub;
+  rclcpp::Publisher<eagleye_msgs::msg::StatusStamped>::SharedPtr velocity_status_pub;
 
-  velocity_estimator_node(node);
+  rclcpp::Subscription<rtklib_msgs::msg::RtklibNav>::SharedPtr rtklib_sub;
+  rclcpp::Subscription<nmea_msgs::msg::Gpgga>::SharedPtr gga_sub;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub;
 
-  return 0;
-} 
+  rtklib_msgs::msg::RtklibNav rtklib_nav_msg;
+  nmea_msgs::msg::Gpgga gga_msg;
+  sensor_msgs::msg::Imu imu_msg;
+
+  VelocityEstimator velocity_estimator;
+  geometry_msgs::msg::TwistStamped velocity_msg;
+
+  std::string yaml_file;
+  std::string subscribe_rtklib_nav_topic_name = "gnss/rtklib_nav";
+  std::string subscribe_gga_topic_name = "gnss/gga";
+};
+
+#include <rclcpp_components/register_node_macro.hpp>
+RCLCPP_COMPONENTS_REGISTER_NODE(VelocityEstimatorNode)

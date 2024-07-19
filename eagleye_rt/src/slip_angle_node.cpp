@@ -32,102 +32,108 @@
 #include "eagleye_coordinate/eagleye_coordinate.hpp"
 #include "eagleye_navigation/eagleye_navigation.hpp"
 
-static sensor_msgs::msg::Imu imu;
-static geometry_msgs::msg::TwistStamped velocity;
-static eagleye_msgs::msg::StatusStamped velocity_status;
-static eagleye_msgs::msg::VelocityScaleFactor velocity_scale_factor;
-static eagleye_msgs::msg::YawrateOffset yaw_rate_offset_stop;
-static eagleye_msgs::msg::YawrateOffset yaw_rate_offset_2nd;
-
-rclcpp::Publisher<eagleye_msgs::msg::SlipAngle>::SharedPtr pub;
-static eagleye_msgs::msg::SlipAngle slip_angle;
-
-struct SlipangleParameter slip_angle_parameter;
-
-static bool use_can_less_mode;
-
-void velocity_callback(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg)
+class SlipAngle: public rclcpp::Node
 {
-  velocity = *msg;
-}
-
-void velocity_status_callback(const eagleye_msgs::msg::StatusStamped::ConstSharedPtr msg)
-{
-  velocity_status = *msg;
-}
-
-void velocity_scale_factor_callback(const eagleye_msgs::msg::VelocityScaleFactor::ConstSharedPtr msg)
-{
-  velocity_scale_factor = *msg;
-}
-
-void yaw_rate_offset_stop_callback(const eagleye_msgs::msg::YawrateOffset::ConstSharedPtr msg)
-{
-  yaw_rate_offset_stop = *msg;
-}
-
-void yaw_rate_offset_2nd_callback(const eagleye_msgs::msg::YawrateOffset::ConstSharedPtr msg)
-{
-  yaw_rate_offset_2nd = *msg;
-}
-
-void imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
-{
-  if(use_can_less_mode && !velocity_status.status.enabled_status) return;
-
-  eagleye_msgs::msg::StatusStamped velocity_enable_status;
-  if(use_can_less_mode)
+public:
+  SlipAngle(const rclcpp::NodeOptions & options)
+  : Node("slip_angle_node", options)
   {
-    velocity_enable_status = velocity_status;
+    std::string yaml_file;
+    this->declare_parameter("yaml_file",yaml_file);
+    this->get_parameter("yaml_file",yaml_file);
+    std::cout << "yaml_file: " << yaml_file << std::endl;
+
+    try
+    {
+      YAML::Node conf = YAML::LoadFile(yaml_file);
+
+      slip_angle_parameter.stop_judgment_threshold = conf["/**"]["ros__parameters"]["common"]["stop_judgment_threshold"].as<double>();
+      slip_angle_parameter.manual_coefficient = conf["/**"]["ros__parameters"]["slip_angle"]["manual_coefficient"].as<double>();
+
+      std::cout << "stop_judgment_threshold " << slip_angle_parameter.stop_judgment_threshold << std::endl;
+      std::cout << "manual_coefficient " << slip_angle_parameter.manual_coefficient << std::endl;
+    }
+    catch (YAML::Exception& e)
+    {
+      std::cerr << "\033[1;31mslip_angle Node YAML Error: " << e.msg << "\033[0m" << std::endl;
+      exit(3);
+    }
+
+    sub1 = this->create_subscription<sensor_msgs::msg::Imu>("imu/data_tf_converted", rclcpp::QoS(10), std::bind(&SlipAngle::imu_callback, this, std::placeholders::_1));  //ros::TransportHints().tcpNoDelay()
+    sub2 = this->create_subscription<eagleye_msgs::msg::VelocityScaleFactor>("velocity_scale_factor", rclcpp::QoS(10), std::bind(&SlipAngle::velocity_scale_factor_callback, this, std::placeholders::_1));  //ros::TransportHints().tcpNoDelay()
+    sub3 = this->create_subscription<eagleye_msgs::msg::YawrateOffset>("yaw_rate_offset_stop", rclcpp::QoS(10), std::bind(&SlipAngle::yaw_rate_offset_stop_callback, this, std::placeholders::_1));  //ros::TransportHints().tcpNoDelay()
+    sub4 = this->create_subscription<eagleye_msgs::msg::YawrateOffset>("yaw_rate_offset_2nd", rclcpp::QoS(10), std::bind(&SlipAngle::yaw_rate_offset_2nd_callback, this, std::placeholders::_1));  //ros::TransportHints().tcpNoDelay()
+    pub = this->create_publisher<eagleye_msgs::msg::SlipAngle>("slip_angle", rclcpp::QoS(10));
   }
-  else
+private:
+  void velocity_callback(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg)
   {
-    velocity_enable_status.header = velocity_scale_factor.header;
-    velocity_enable_status.status = velocity_scale_factor.status;
+    velocity = *msg;
   }
 
-  imu = *msg;
-  slip_angle.header = msg->header;
-  slip_angle.header.frame_id = "base_link";
-  slip_angle_estimate(imu,velocity,velocity_enable_status,yaw_rate_offset_stop,yaw_rate_offset_2nd,slip_angle_parameter,&slip_angle);
-  pub->publish(slip_angle);
-  slip_angle.status.estimate_status = false;
-}
-
-int main(int argc, char** argv)
-{
-  rclcpp::init(argc, argv);
-  auto node = rclcpp::Node::make_shared("eagleye_slip_angle");
-  
-  std::string yaml_file;
-  node->declare_parameter("yaml_file",yaml_file);
-  node->get_parameter("yaml_file",yaml_file);
-  std::cout << "yaml_file: " << yaml_file << std::endl;
-
-  try
+  void velocity_status_callback(const eagleye_msgs::msg::StatusStamped::ConstSharedPtr msg)
   {
-    YAML::Node conf = YAML::LoadFile(yaml_file);
-
-    slip_angle_parameter.stop_judgment_threshold = conf["/**"]["ros__parameters"]["common"]["stop_judgment_threshold"].as<double>();
-    slip_angle_parameter.manual_coefficient = conf["/**"]["ros__parameters"]["slip_angle"]["manual_coefficient"].as<double>();
-
-    std::cout << "stop_judgment_threshold " << slip_angle_parameter.stop_judgment_threshold << std::endl;
-    std::cout << "manual_coefficient " << slip_angle_parameter.manual_coefficient << std::endl;
-  }
-  catch (YAML::Exception& e)
-  {
-    std::cerr << "\033[1;31mslip_angle Node YAML Error: " << e.msg << "\033[0m" << std::endl;
-    exit(3);
+    velocity_status = *msg;
   }
 
-  auto sub1 = node->create_subscription<sensor_msgs::msg::Imu>("imu/data_tf_converted", rclcpp::QoS(10), imu_callback);  //ros::TransportHints().tcpNoDelay()
-  auto sub2 = node->create_subscription<eagleye_msgs::msg::VelocityScaleFactor>("velocity_scale_factor", rclcpp::QoS(10), velocity_scale_factor_callback);  //ros::TransportHints().tcpNoDelay()
-  auto sub3 = node->create_subscription<eagleye_msgs::msg::YawrateOffset>("yaw_rate_offset_stop", rclcpp::QoS(10), yaw_rate_offset_stop_callback);  //ros::TransportHints().tcpNoDelay()
-  auto sub4 = node->create_subscription<eagleye_msgs::msg::YawrateOffset>("yaw_rate_offset_2nd", rclcpp::QoS(10), yaw_rate_offset_2nd_callback);  //ros::TransportHints().tcpNoDelay()
-  pub = node->create_publisher<eagleye_msgs::msg::SlipAngle>("slip_angle", rclcpp::QoS(10));
+  void velocity_scale_factor_callback(const eagleye_msgs::msg::VelocityScaleFactor::ConstSharedPtr msg)
+  {
+    velocity_scale_factor = *msg;
+  }
 
-  rclcpp::spin(node);
+  void yaw_rate_offset_stop_callback(const eagleye_msgs::msg::YawrateOffset::ConstSharedPtr msg)
+  {
+    yaw_rate_offset_stop = *msg;
+  }
 
+  void yaw_rate_offset_2nd_callback(const eagleye_msgs::msg::YawrateOffset::ConstSharedPtr msg)
+  {
+    yaw_rate_offset_2nd = *msg;
+  }
 
-  return 0;
-}
+  void imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
+  {
+    if(use_can_less_mode && !velocity_status.status.enabled_status) return;
+
+    eagleye_msgs::msg::StatusStamped velocity_enable_status;
+    if(use_can_less_mode)
+    {
+      velocity_enable_status = velocity_status;
+    }
+    else
+    {
+      velocity_enable_status.header = velocity_scale_factor.header;
+      velocity_enable_status.status = velocity_scale_factor.status;
+    }
+
+    imu = *msg;
+    slip_angle.header = msg->header;
+    slip_angle.header.frame_id = "base_link";
+    slip_angle_estimate(imu,velocity,velocity_enable_status,yaw_rate_offset_stop,yaw_rate_offset_2nd,slip_angle_parameter,&slip_angle);
+    pub->publish(slip_angle);
+    slip_angle.status.estimate_status = false;
+  }
+
+  sensor_msgs::msg::Imu imu;
+  geometry_msgs::msg::TwistStamped velocity;
+  eagleye_msgs::msg::StatusStamped velocity_status;
+  eagleye_msgs::msg::VelocityScaleFactor velocity_scale_factor;
+  eagleye_msgs::msg::YawrateOffset yaw_rate_offset_stop;
+  eagleye_msgs::msg::YawrateOffset yaw_rate_offset_2nd;
+
+  rclcpp::Publisher<eagleye_msgs::msg::SlipAngle>::SharedPtr pub;
+
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub1;
+  rclcpp::Subscription<eagleye_msgs::msg::VelocityScaleFactor>::SharedPtr sub2;
+  rclcpp::Subscription<eagleye_msgs::msg::YawrateOffset>::SharedPtr sub3;
+  rclcpp::Subscription<eagleye_msgs::msg::YawrateOffset>::SharedPtr sub4;
+
+  eagleye_msgs::msg::SlipAngle slip_angle;
+
+  SlipangleParameter slip_angle_parameter;
+
+  bool use_can_less_mode;
+};
+
+#include <rclcpp_components/register_node_macro.hpp>
+RCLCPP_COMPONENTS_REGISTER_NODE(SlipAngle)

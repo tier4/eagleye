@@ -48,7 +48,7 @@
 class TFConvertedIMU: public rclcpp::Node
 {
 public:
-  TFConvertedIMU();
+  TFConvertedIMU(const rclcpp::NodeOptions & options);
   ~TFConvertedIMU();
 
 private:
@@ -70,7 +70,7 @@ private:
 
 };
 
-TFConvertedIMU::TFConvertedIMU() : Node("eagleye_tf_converted_imu"),
+TFConvertedIMU::TFConvertedIMU(const rclcpp::NodeOptions & options) : Node("eagleye_tf_converted_imu", options),
     logger_(get_logger()),
     clock_(RCL_ROS_TIME),
     tfbuffer_(std::make_shared<rclcpp::Clock>(clock_)),
@@ -142,11 +142,5 @@ void TFConvertedIMU::imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr ms
   pub_->publish(tf_converted_imu_);
 };
 
-int main(int argc, char** argv)
-{
-  rclcpp::init(argc, argv);
-
-  rclcpp::spin(std::make_shared<TFConvertedIMU>());
-
-  return 0;
-}
+#include <rclcpp_components/register_node_macro.hpp>
+RCLCPP_COMPONENTS_REGISTER_NODE(TFConvertedIMU)

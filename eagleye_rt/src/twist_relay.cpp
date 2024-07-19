@@ -35,7 +35,7 @@
 class TwistRelay: public rclcpp::Node
 {
 public:
-  TwistRelay();
+  TwistRelay(const rclcpp::NodeOptions & options);
   ~TwistRelay();
 
 private:
@@ -51,7 +51,7 @@ private:
 
 };
 
-TwistRelay::TwistRelay() : Node("eagleye_twist_relay"),
+TwistRelay::TwistRelay(const rclcpp::NodeOptions & options) : Node("eagleye_twist_relay", options),
     clock_(RCL_ROS_TIME),
     logger_(get_logger())
 {
@@ -103,11 +103,5 @@ void TwistRelay::twist_with_covariance_callback(const geometry_msgs::msg::TwistW
   pub_->publish(twist);
 };
 
-int main(int argc, char** argv)
-{
-  rclcpp::init(argc, argv);
-
-  rclcpp::spin(std::make_shared<TwistRelay>());
-
-  return 0;
-}
+#include <rclcpp_components/register_node_macro.hpp>
+RCLCPP_COMPONENTS_REGISTER_NODE(TwistRelay)

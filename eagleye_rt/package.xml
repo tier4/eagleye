@@ -13,6 +13,7 @@
   <depend>yaml_cpp_vendor</depend>
   <depend>tf2_eigen</depend>
   <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>geographic_msgs</depend>

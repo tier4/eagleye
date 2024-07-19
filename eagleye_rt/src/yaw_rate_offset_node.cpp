@@ -32,86 +32,24 @@
 #include "eagleye_coordinate/eagleye_coordinate.hpp"
 #include "eagleye_navigation/eagleye_navigation.hpp"
 
-static geometry_msgs::msg::TwistStamped _velocity;
-static eagleye_msgs::msg::StatusStamped _velocity_status;
-static eagleye_msgs::msg::YawrateOffset _yaw_rate_offset_stop;
-static eagleye_msgs::msg::Heading _heading_interpolate;
-static sensor_msgs::msg::Imu _imu;
-rclcpp::Publisher<eagleye_msgs::msg::YawrateOffset>::SharedPtr _pub;
-static eagleye_msgs::msg::YawrateOffset _yaw_rate_offset;
-
-struct YawrateOffsetParameter _yaw_rate_offset_parameter;
-struct YawrateOffsetStatus _yaw_rate_offset_status;
-
-bool _is_first_heading = false;
-static bool _use_can_less_mode = false;
-
-double _previous_yaw_rate_offset = 0.0;
-
-void velocity_callback(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg)
+class YawRateOffset: public rclcpp::Node
 {
-  _velocity = *msg;
-}
-
-void velocity_status_callback(const eagleye_msgs::msg::StatusStamped::ConstSharedPtr msg)
-{
-  _velocity_status = *msg;
-}
-
-void yaw_rate_offset_stop_callback(const eagleye_msgs::msg::YawrateOffset::ConstSharedPtr msg)
-{
-  _yaw_rate_offset_stop = *msg;
-}
-
-void heading_interpolate_callback(const eagleye_msgs::msg::Heading::ConstSharedPtr msg)
-{
-  _heading_interpolate = *msg;
-  if (_is_first_heading == false && _heading_interpolate.status.enabled_status == true)
+public:
+  YawRateOffset(const rclcpp::NodeOptions & options)
+  : Node("yaw_rate_offset_node", options)
   {
-    _is_first_heading = true;
-  }
-}
+    std::string publish_topic_name = "/publish_topic_name/invalid";
+    std::string subscribe_topic_name = "/subscribe_topic_name/invalid";
 
-void imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
-{
-  if (_is_first_heading == false) return;
-  if(_use_can_less_mode && !_velocity_status.status.enabled_status) return;
+    std::string yaml_file;
+    std::string node_mode;
+    this->declare_parameter("yaml_file",yaml_file);
+    this->get_parameter("yaml_file",yaml_file);
+    this->declare_parameter("node_mode",node_mode);
+    this->get_parameter("node_mode",node_mode);
+    std::cout << "yaml_file: " << yaml_file << std::endl;
 
-  _imu = *msg;
-  _yaw_rate_offset.header = msg->header;
-  yaw_rate_offset_estimate(_velocity,_yaw_rate_offset_stop,_heading_interpolate,_imu,_yaw_rate_offset_parameter, &_yaw_rate_offset_status, &_yaw_rate_offset);
-
-  _yaw_rate_offset.status.is_abnormal = false;
-  if (!std::isfinite(_yaw_rate_offset_stop.yaw_rate_offset)) {
-    _yaw_rate_offset_stop.yaw_rate_offset =_previous_yaw_rate_offset;
-    _yaw_rate_offset.status.is_abnormal = true;
-    _yaw_rate_offset.status.error_code = eagleye_msgs::msg::Status::NAN_OR_INFINITE;
-  }
-  else
-  {
-    _previous_yaw_rate_offset = _yaw_rate_offset_stop.yaw_rate_offset;
-  }
-
-  _pub->publish(_yaw_rate_offset);
-  _yaw_rate_offset.status.estimate_status = false;
-}
-
-int main(int argc, char** argv)
-{
-  rclcpp::init(argc, argv);
-  auto node = rclcpp::Node::make_shared("eagleye_yaw_rate_offset");
-
-  std::string publish_topic_name = "/publish_topic_name/invalid";
-  std::string subscribe_topic_name = "/subscribe_topic_name/invalid";
-
-  std::string yaml_file;
-  node->declare_parameter("yaml_file",yaml_file);
-  node->get_parameter("yaml_file",yaml_file);
-  std::cout << "yaml_file: " << yaml_file << std::endl;
-
-  if (argc > 2)
-  {
-    if (strcmp(argv[1], "1st") == 0)
+    if (node_mode == "1st")
     {
       publish_topic_name = "yaw_rate_offset_1st";
       subscribe_topic_name = "heading_interpolate_1st";
@@ -144,7 +82,7 @@ int main(int argc, char** argv)
         exit(3);
       }
     }
-    else if (strcmp(argv[1], "2nd") == 0)
+    else if (node_mode == "2nd")
     {
       publish_topic_name = "yaw_rate_offset_2nd";
       subscribe_topic_name = "heading_interpolate_2nd";
@@ -179,25 +117,87 @@ int main(int argc, char** argv)
     }
     else
     {
-      // RCLCPP_ERROR(node->get_logger(),"Invalid argument");
-      RCLCPP_ERROR(node->get_logger(), "No arguments");
+      RCLCPP_ERROR(this->get_logger(),"Invalid node_mode: %s", node_mode.c_str());
       rclcpp::shutdown();
     }
+
+    sub1 = this->create_subscription<geometry_msgs::msg::TwistStamped>("velocity", rclcpp::QoS(10), std::bind(&YawRateOffset::velocity_callback, this, std::placeholders::_1));  //ros::TransportHints().tcpNoDelay()
+    sub2 = this->create_subscription<eagleye_msgs::msg::YawrateOffset>("yaw_rate_offset_stop", rclcpp::QoS(10), std::bind(&YawRateOffset::yaw_rate_offset_stop_callback, this, std::placeholders::_1));  //ros::TransportHints().tcpNoDelay()
+    sub3 = this->create_subscription<eagleye_msgs::msg::Heading>(subscribe_topic_name, 1000, std::bind(&YawRateOffset::heading_interpolate_callback, this, std::placeholders::_1));  //ros::TransportHints().tcpNoDelay()
+    sub4 = this->create_subscription<sensor_msgs::msg::Imu>("imu/data_tf_converted", 1000, std::bind(&YawRateOffset::imu_callback, this, std::placeholders::_1));  //ros::TransportHints().tcpNoDelay()
+    _pub = this->create_publisher<eagleye_msgs::msg::YawrateOffset>(publish_topic_name, rclcpp::QoS(10));
   }
-  else
+private:
+  void velocity_callback(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg)
   {
-    RCLCPP_ERROR(node->get_logger(), "No arguments");
-    rclcpp::shutdown();
+    _velocity = *msg;
   }
 
-  auto sub1 = node->create_subscription<geometry_msgs::msg::TwistStamped>("velocity", rclcpp::QoS(10), velocity_callback);  //ros::TransportHints().tcpNoDelay()
-  auto sub2 = node->create_subscription<eagleye_msgs::msg::YawrateOffset>("yaw_rate_offset_stop", rclcpp::QoS(10), yaw_rate_offset_stop_callback);  //ros::TransportHints().tcpNoDelay()
-  auto sub3 = node->create_subscription<eagleye_msgs::msg::Heading>(subscribe_topic_name, 1000, heading_interpolate_callback);  //ros::TransportHints().tcpNoDelay()
-  auto sub4 = node->create_subscription<sensor_msgs::msg::Imu>("imu/data_tf_converted", 1000, imu_callback);  //ros::TransportHints().tcpNoDelay()
-  _pub = node->create_publisher<eagleye_msgs::msg::YawrateOffset>(publish_topic_name, rclcpp::QoS(10));
+  void velocity_status_callback(const eagleye_msgs::msg::StatusStamped::ConstSharedPtr msg)
+  {
+    _velocity_status = *msg;
+  }
 
-  rclcpp::spin(node);
+  void yaw_rate_offset_stop_callback(const eagleye_msgs::msg::YawrateOffset::ConstSharedPtr msg)
+  {
+    _yaw_rate_offset_stop = *msg;
+  }
 
+  void heading_interpolate_callback(const eagleye_msgs::msg::Heading::ConstSharedPtr msg)
+  {
+    _heading_interpolate = *msg;
+    if (_is_first_heading == false && _heading_interpolate.status.enabled_status == true)
+    {
+      _is_first_heading = true;
+    }
+  }
 
-  return 0;
-}
+  void imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
+  {
+    if (_is_first_heading == false) return;
+    if(_use_can_less_mode && !_velocity_status.status.enabled_status) return;
+
+    _imu = *msg;
+    _yaw_rate_offset.header = msg->header;
+    yaw_rate_offset_estimate(_velocity,_yaw_rate_offset_stop,_heading_interpolate,_imu,_yaw_rate_offset_parameter, &_yaw_rate_offset_status, &_yaw_rate_offset);
+
+    _yaw_rate_offset.status.is_abnormal = false;
+    if (!std::isfinite(_yaw_rate_offset_stop.yaw_rate_offset)) {
+      _yaw_rate_offset_stop.yaw_rate_offset =_previous_yaw_rate_offset;
+      _yaw_rate_offset.status.is_abnormal = true;
+      _yaw_rate_offset.status.error_code = eagleye_msgs::msg::Status::NAN_OR_INFINITE;
+    }
+    else
+    {
+      _previous_yaw_rate_offset = _yaw_rate_offset_stop.yaw_rate_offset;
+    }
+
+    _pub->publish(_yaw_rate_offset);
+    _yaw_rate_offset.status.estimate_status = false;
+  }
+
+  geometry_msgs::msg::TwistStamped _velocity;
+  eagleye_msgs::msg::StatusStamped _velocity_status;
+  eagleye_msgs::msg::YawrateOffset _yaw_rate_offset_stop;
+  eagleye_msgs::msg::Heading _heading_interpolate;
+  sensor_msgs::msg::Imu _imu;
+  rclcpp::Publisher<eagleye_msgs::msg::YawrateOffset>::SharedPtr _pub;
+
+  rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr sub1;
+  rclcpp::Subscription<eagleye_msgs::msg::YawrateOffset>::SharedPtr sub2;
+  rclcpp::Subscription<eagleye_msgs::msg::Heading>::SharedPtr sub3;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub4;
+
+  eagleye_msgs::msg::YawrateOffset _yaw_rate_offset;
+
+  YawrateOffsetParameter _yaw_rate_offset_parameter;
+  YawrateOffsetStatus _yaw_rate_offset_status;
+
+  bool _is_first_heading = false;
+  bool _use_can_less_mode = false;
+
+  double _previous_yaw_rate_offset = 0.0;
+};
+
+#include <rclcpp_components/register_node_macro.hpp>
+RCLCPP_COMPONENTS_REGISTER_NODE(YawRateOffset)
