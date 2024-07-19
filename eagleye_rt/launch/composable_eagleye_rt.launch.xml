@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <arg name="output_pose_with_cov_name" default="/localization/pose_estimator/pose_with_covariance"/>
+  <arg name="output_twist_with_cov_name" default="/localization/twist_estimator/twist_with_covariance"/>
+  <arg name="directory_with_related_launches" default="$(find-pkg-share tier4_localization_launch)/launch/pose_twist_estimator/eagleye"/>
+  <arg name="use_eagleye_pose" default="true"/>
+  <arg name="use_eagleye_twist" default="true"/>
+
+  <arg name="enable_additional_rolling" default="false"/>
+  <arg name="use_multi_antenna_mode" default="false"/>
+
+  <group>
+    <push-ros-namespace namespace="eagleye"/>
+
+    <arg name="use_rtk_dead_reckoning" default="false"/>
+    <arg name="use_rtk_heading" default="false"/>
+
+    <group if="$(var use_eagleye_twist)">
+      <node pkg="topic_tools" exec="relay" name="eagleye_output_twist_relay" args="twist_with_covariance $(var output_twist_with_cov_name)"/>
+    </group>
+
+    <node_container pkg="rclcpp_components" exec="component_container" name="eagleye_container1" namespace="">
+      <composable_node pkg="glog_component" plugin="GlogComponent" name="glog_component" namespace=""/>
+      <composable_node pkg="eagleye_rt" name="twist_relay" plugin="TwistRelay">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="tf_converted_imu" plugin="TFConvertedIMU">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="velocity_scale_factor_node" plugin="VelocityScaleFactor">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+        <param name="velocity_scale_factor_save_str" value="$(find-pkg-share eagleye_rt)/config/velocity_scale_factor.txt"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="yaw_rate_offset_stop_node" plugin="YawRateOffsetStop">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="yaw_rate_offset_node_1st" plugin="YawRateOffset">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+        <param name="node_mode" value="1st"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="yaw_rate_offset_node_2nd" plugin="YawRateOffset">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+        <param name="node_mode" value="2nd"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="slip_angle_node" plugin="SlipAngle">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      
+      <composable_node pkg="eagleye_rt" name="angular_velocity_offset_stop_node" plugin="AngularVelocityOffsetStop">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="correction_imu" plugin="CorrectionImu">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+    
+    </node_container>
+
+    <node_container pkg="rclcpp_components" exec="component_container" name="eagleye_container2" namespace="">
+      <composable_node pkg="glog_component" plugin="GlogComponent" name="glog_component" namespace=""/>
+      <composable_node pkg="eagleye_rt" name="distance_node" plugin="Distance">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="trajectory_node" plugin="Trajectory">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="rtk_dead_reckoning" plugin="RTKDeadReckoning" if="$(var use_rtk_dead_reckoning)">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="position_node" plugin="Position" if="$(eval &quot;'$(var use_rtk_dead_reckoning)'=='false'&quot;)">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="position_interpolate_node" plugin="PositionInterpolate" if="$(eval &quot;'$(var use_rtk_dead_reckoning)'=='false'&quot;)">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="smoothing_node" plugin="Smoothing">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="height_node" plugin="Height">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="rolling" plugin="Rolling">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+      <composable_node pkg="eagleye_rt" name="enable_additional_rolling" plugin="EnableAdditionalRolling" if="$(eval &quot;'$(var enable_additional_rolling)'=='true'&quot;)">
+        <param from="$(var eagleye_param_path)"/>
+        <param name="yaml_file" value="$(var eagleye_param_path)"/>
+      </composable_node>
+    </node_container>
+
+      <node_container pkg="rclcpp_components" exec="component_container" name="eagleye_container3" namespace="">
+        <composable_node pkg="glog_component" plugin="GlogComponent" name="glog_component" namespace=""/>
+
+        <composable_node pkg="eagleye_rt" name="heading_node_1st" plugin="Heading" if="$(eval &quot;'$(var use_rtk_heading)'=='false'&quot;)">
+          <param from="$(var eagleye_param_path)"/>
+          <param name="yaml_file" value="$(var eagleye_param_path)"/>
+          <param name="use_multi_antenna_mode" value="$(var use_multi_antenna_mode)"/>
+          <param name="node_mode" value="1st"/>
+        </composable_node>
+        <composable_node pkg="eagleye_rt" name="heading_node_2nd" plugin="Heading" if="$(eval &quot;'$(var use_rtk_heading)'=='false'&quot;)">
+          <param from="$(var eagleye_param_path)"/>
+          <param name="yaml_file" value="$(var eagleye_param_path)"/>
+          <param name="use_multi_antenna_mode" value="$(var use_multi_antenna_mode)"/>
+          <param name="node_mode" value="2nd"/>
+        </composable_node>
+        <composable_node pkg="eagleye_rt" name="heading_node_3rd" plugin="Heading" if="$(eval &quot;'$(var use_rtk_heading)'=='false'&quot;)">
+          <param from="$(var eagleye_param_path)"/>
+          <param name="yaml_file" value="$(var eagleye_param_path)"/>
+          <param name="use_multi_antenna_mode" value="$(var use_multi_antenna_mode)"/>
+          <param name="node_mode" value="3rd"/>
+        </composable_node>
+        <composable_node pkg="eagleye_rt" name="heading_interpolate_node_1st" plugin="HeadingInterpolate">
+          <param from="$(var eagleye_param_path)"/>
+          <param name="yaml_file" value="$(var eagleye_param_path)"/>
+          <param name="node_mode" value="1st"/>
+        </composable_node>
+        <composable_node pkg="eagleye_rt" name="heading_interpolate_node_2nd" plugin="HeadingInterpolate">
+          <param from="$(var eagleye_param_path)"/>
+          <param name="yaml_file" value="$(var eagleye_param_path)"/>
+          <param name="node_mode" value="2nd"/>
+        </composable_node>
+        <composable_node pkg="eagleye_rt" name="heading_interpolate_node_3rd" plugin="HeadingInterpolate">
+          <param from="$(var eagleye_param_path)"/>
+          <param name="yaml_file" value="$(var eagleye_param_path)"/>
+          <param name="node_mode" value="3rd"/>
+        </composable_node>
+        <composable_node pkg="eagleye_rt" name="rtk_heading_node_1st" plugin="RTKHeading" if="$(var use_rtk_heading)">
+          <param from="$(var eagleye_param_path)"/>
+          <param name="yaml_file" value="$(var eagleye_param_path)"/>
+          <param name="node_mode" value="1st"/>
+        </composable_node>
+        <composable_node pkg="eagleye_rt" name="rtk_heading_node_2nd" plugin="RTKHeading" if="$(var use_rtk_heading)">
+          <param from="$(var eagleye_param_path)"/>
+          <param name="yaml_file" value="$(var eagleye_param_path)"/>
+          <param name="node_mode" value="2nd"/>
+        </composable_node>
+        <composable_node pkg="eagleye_rt" name="rtk_heading_node_3rd" plugin="RTKHeading" if="$(var use_rtk_heading)">
+          <param from="$(var eagleye_param_path)"/>
+          <param name="yaml_file" value="$(var eagleye_param_path)"/>
+          <param name="node_mode" value="3rd"/>
+        </composable_node>
+      </node_container>
+
+    <node pkg="eagleye_rt" name="monitor" exec="monitor">
+      <param from="$(var eagleye_param_path)"/>
+      <param name="yaml_file" value="$(var eagleye_param_path)"/>
+    </node>
+
+    <include file="$(var directory_with_related_launches)/gnss_converter.launch.xml">
+      <arg name="config_path" value="$(var eagleye_param_path)"/>
+    </include>
+  </group>
+
+
+  <group if="$(var use_eagleye_pose)">
+    <include file="$(var directory_with_related_launches)/fix2pose.launch.xml">
+      <arg name="output_pose_with_cov_name" value="$(var output_pose_with_cov_name)"/>
+    </include>
+  </group>
+</launch>
