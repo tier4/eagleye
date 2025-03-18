@@ -139,6 +139,12 @@ void TFConvertedIMU::imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr ms
     RCLCPP_WARN(rclcpp::get_logger("tf_converted_imu"), "Failed to lookup transform.");
     return;
   }
+
+  //TODO: Support for coordinate transformation of covariance
+  tf_converted_imu_.angular_velocity_covariance = imu_.angular_velocity_covariance;
+  tf_converted_imu_.linear_acceleration_covariance = imu_.linear_acceleration_covariance;
+  tf_converted_imu_.orientation_covariance = imu_.orientation_covariance;
+
   pub_->publish(tf_converted_imu_);
 };
 
