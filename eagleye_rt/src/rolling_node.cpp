@@ -90,11 +90,6 @@ void setParam(rclcpp::Node::SharedPtr node)
     _rolling_parameter.stop_judgment_threshold = conf["/**"]["ros__parameters"]["common"]["stop_judgment_threshold"].as<double>();
     _rolling_parameter.filter_process_noise = conf["/**"]["ros__parameters"]["rolling"]["filter_process_noise"].as<double>();
     _rolling_parameter.filter_observation_noise = conf["/**"]["ros__parameters"]["rolling"]["filter_observation_noise"].as<double>();
-
-    std::cout<< "use_can_less_mode " << _use_can_less_mode << std::endl;
-    std::cout << "stop_judgment_threshold " << _rolling_parameter.stop_judgment_threshold << std::endl;
-    std::cout << "filter_process_noise " << _rolling_parameter.filter_process_noise << std::endl;
-    std::cout << "filter_observation_noise " << _rolling_parameter.filter_observation_noise << std::endl;
   }
   catch (YAML::Exception& e)
   {

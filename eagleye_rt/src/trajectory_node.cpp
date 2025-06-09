@@ -189,23 +189,7 @@ int main(int argc, char** argv)
     trajectory_parameter.sensor_noise_yaw_rate = conf["/**"]["ros__parameters"]["trajectory"]["sensor_noise_yaw_rate"].as<double>();
     trajectory_parameter.sensor_bias_noise_yaw_rate = conf["/**"]["ros__parameters"]["trajectory"]["sensor_bias_noise_yaw_rate"].as<double>();
     timer_update_rate = conf["/**"]["ros__parameters"]["trajectory"]["timer_update_rate"].as<double>();
-    // deadlock_threshold = conf["/**"]["ros__parameters"]["trajectory"]["deadlock_threshold"].as<double>();
 
-    std::cout<< "use_can_less_mode " << use_can_less_mode << std::endl;
-
-    std::cout<< "subscribe_twist_topic_name " << subscribe_twist_topic_name << std::endl;
-
-    std::cout << "stop_judgment_threshold " << trajectory_parameter.stop_judgment_threshold << std::endl;
-
-    std::cout << "curve_judgment_threshold " << trajectory_parameter.curve_judgment_threshold << std::endl;
-
-    std::cout << "sensor_noise_velocity " << trajectory_parameter.sensor_noise_velocity << std::endl;
-    std::cout << "sensor_scale_noise_velocity " << trajectory_parameter.sensor_scale_noise_velocity << std::endl;
-    std::cout << "sensor_noise_yaw_rate " << trajectory_parameter.sensor_noise_yaw_rate << std::endl;
-    std::cout << "sensor_bias_noise_yaw_rate " << trajectory_parameter.sensor_bias_noise_yaw_rate << std::endl;
-
-    std::cout << "timer_update_rate " << timer_update_rate << std::endl;
-    // std::cout << "deadlock_threshold " << deadlock_threshold << std::endl;
   }
   catch (YAML::Exception& e)
   {

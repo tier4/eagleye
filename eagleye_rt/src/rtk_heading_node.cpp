@@ -137,22 +137,6 @@ int main(int argc, char** argv)
     heading_parameter.outlier_ratio_threshold = conf["/**"]["ros__parameters"]["rtk_heading"]["outlier_ratio_threshold"].as<double>();
     heading_parameter.curve_judgment_threshold = conf["/**"]["ros__parameters"]["rtk_heading"]["curve_judgment_threshold"].as<double>();
 
-    std::cout<< "use_can_less_mode " << use_can_less_mode << std::endl;
-
-    std::cout<< "subscribe_gga_topic_name " << subscribe_gga_topic_name << std::endl;
-
-    std::cout << "imu_rate " << heading_parameter.imu_rate << std::endl;
-    std::cout << "gnss_rate " << heading_parameter.gnss_rate << std::endl;
-    std::cout << "stop_judgment_threshold " << heading_parameter.stop_judgment_threshold << std::endl;
-    std::cout << "slow_judgment_threshold " << heading_parameter.slow_judgment_threshold << std::endl;
-
-    std::cout << "update_distance " << heading_parameter.update_distance << std::endl;
-    std::cout << "estimated_minimum_interval " << heading_parameter.estimated_minimum_interval << std::endl;
-    std::cout << "estimated_maximum_interval " << heading_parameter.estimated_maximum_interval << std::endl;
-    std::cout << "gnss_receiving_threshold " << heading_parameter.gnss_receiving_threshold << std::endl;
-    std::cout << "outlier_threshold " << heading_parameter.outlier_threshold << std::endl;
-    std::cout << "outlier_ratio_threshold " << heading_parameter.outlier_ratio_threshold << std::endl;
-    std::cout << "curve_judgment_threshold " << heading_parameter.curve_judgment_threshold << std::endl;
   }
   catch (YAML::Exception& e)
   {

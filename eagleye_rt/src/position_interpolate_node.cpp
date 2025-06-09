@@ -114,9 +114,6 @@ int main(int argc, char** argv)
     position_interpolate_parameter.stop_judgment_threshold = conf["/**"]["ros__parameters"]["common"]["stop_judgment_threshold"].as<double>();
     position_interpolate_parameter.sync_search_period = conf["/**"]["ros__parameters"]["position_interpolate"]["sync_search_period"].as<double>();
 
-    std::cout << "imu_rate " << position_interpolate_parameter.imu_rate << std::endl;
-    std::cout << "stop_judgment_threshold " << position_interpolate_parameter.stop_judgment_threshold << std::endl;
-    std::cout << "sync_search_period " << position_interpolate_parameter.sync_search_period << std::endl;
   }
   catch (YAML::Exception& e)
   {

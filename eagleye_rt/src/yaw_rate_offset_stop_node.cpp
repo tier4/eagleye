@@ -88,13 +88,6 @@ int main(int argc, char** argv)
     _yaw_rate_offset_stop_parameter.estimated_interval = conf["/**"]["ros__parameters"]["yaw_rate_offset_stop"]["estimated_interval"].as<double>();
     _yaw_rate_offset_stop_parameter.outlier_threshold = conf["/**"]["ros__parameters"]["yaw_rate_offset_stop"]["outlier_threshold"].as<double>();
 
-    std::cout << "subscribe_twist_topic_name " << subscribe_twist_topic_name << std::endl;
-
-    std::cout << "imu_rate " << _yaw_rate_offset_stop_parameter.imu_rate << std::endl;
-    std::cout << "stop_judgment_threshold " << _yaw_rate_offset_stop_parameter.stop_judgment_threshold << std::endl;
-
-    std::cout << "estimated_minimum_interval " << _yaw_rate_offset_stop_parameter.estimated_interval << std::endl;
-    std::cout << "outlier_threshold " << _yaw_rate_offset_stop_parameter.outlier_threshold << std::endl;
   }
   catch (YAML::Exception& e)
   {

@@ -130,17 +130,6 @@ int main(int argc, char** argv)
     height_parameter.outlier_ratio_threshold = conf["/**"]["ros__parameters"]["height"]["outlier_ratio_threshold"].as<double>();
     height_parameter.moving_average_time = conf["/**"]["ros__parameters"]["height"]["moving_average_time"].as<double>();
 
-    std::cout << "imu_rate " << height_parameter.imu_rate << std::endl;
-    std::cout << "gnss_rate " << height_parameter.gnss_rate << std::endl;
-    std::cout << "moving_judgment_threshold " << height_parameter.moving_judgment_threshold << std::endl;
-
-    std::cout << "estimated_minimum_interval " << height_parameter.estimated_minimum_interval << std::endl;
-    std::cout << "estimated_maximum_interval " << height_parameter.estimated_maximum_interval << std::endl;
-    std::cout << "update_distance " << height_parameter.update_distance << std::endl;
-    std::cout << "gnss_receiving_threshold " << height_parameter.gnss_receiving_threshold << std::endl;
-    std::cout << "outlier_threshold " << height_parameter.outlier_threshold << std::endl;
-    std::cout << "outlier_ratio_threshold " << height_parameter.outlier_ratio_threshold << std::endl;
-    std::cout << "moving_average_time " << height_parameter.moving_average_time << std::endl;
   }
   catch (YAML::Exception& e)
   {

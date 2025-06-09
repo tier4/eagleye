@@ -1119,16 +1119,7 @@ int main(int argc, char** argv)
   node->get_parameter("monitor.th_diff_rad_per_sec",_th_diff_rad_per_sec);
   node->get_parameter("monitor.th_num_continuous_abnormal_yaw_rate",_th_num_continuous_abnormal_yaw_rate);
 
-  std::cout<< "subscribe_rtklib_nav_topic_name "<<subscribe_rtklib_nav_topic_name<<std::endl;
-  std::cout<< "subscribe_gga_topic_name "<<subscribe_gga_topic_name<<std::endl;
-  std::cout<< "print_status "<<_print_status<<std::endl;
-  std::cout<< "log_output_status "<<_log_output_status<<std::endl;
-  std::cout<< "use_compare_yaw_rate "<<_use_compare_yaw_rate<<std::endl;
-  if(_use_compare_yaw_rate) {
-  std::cout<< "comparison_twist_topic_name "<<comparison_twist_topic_name<<std::endl;
-  std::cout<< "th_diff_rad_per_sec "<<_th_diff_rad_per_sec<<std::endl;
-  std::cout<< "th_num_continuous_abnormal_yaw_rate "<<_th_num_continuous_abnormal_yaw_rate<<std::endl;
-  }
+
 
   // // Diagnostic Updater
   double update_time = 1.0 / _update_rate;
