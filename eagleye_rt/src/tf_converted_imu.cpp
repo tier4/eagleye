@@ -89,11 +89,6 @@ TFConvertedIMU::TFConvertedIMU() : Node("eagleye_tf_converted_imu"),
   get_parameter("tf_gnss_frame.parent", tf_base_link_frame_);
   get_parameter("reverse_imu_wz", reverse_imu_wz_);
 
-  std::cout<< "subscribe_imu_topic_name: " << subscribe_imu_topic_name << std::endl;
-  std::cout<< "publish_imu_topic_name: " << publish_imu_topic_name << std::endl;
-  std::cout<< "tf_base_link_frame: " << tf_base_link_frame_ << std::endl;
-  std::cout<< "reverse_imu_wz: " << reverse_imu_wz_ << std::endl;
-
   sub_ =  create_subscription<sensor_msgs::msg::Imu>(subscribe_imu_topic_name, rclcpp::QoS(10), std::bind(&TFConvertedIMU::imu_callback, this, std::placeholders::_1));
   pub_ = create_publisher<sensor_msgs::msg::Imu>("imu/data_tf_converted", rclcpp::QoS(10));
 };
@@ -135,7 +130,6 @@ void TFConvertedIMU::imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr ms
   } 
   catch (tf2::TransformException& ex)
   {
-    std::cout << "Failed to lookup transform" << std::endl;
     RCLCPP_WARN(rclcpp::get_logger("tf_converted_imu"), "Failed to lookup transform.");
     return;
   }

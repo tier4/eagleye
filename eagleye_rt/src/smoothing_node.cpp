@@ -123,18 +123,6 @@ int main(int argc, char** argv)
     smoothing_parameter.moving_average_time = conf["/**"]["ros__parameters"]["smoothing"]["moving_average_time"].as<double>();
     smoothing_parameter.moving_ratio_threshold = conf["/**"]["ros__parameters"]["smoothing"]["moving_ratio_threshold"].as<double>();
 
-    std::cout<< "use_can_less_mode " << use_can_less_mode << std::endl;
-
-    std::cout<< "subscribe_rtklib_nav_topic_name " << subscribe_rtklib_nav_topic_name << std::endl;
-
-    std::cout<< "ecef_base_pos_x " << smoothing_parameter.ecef_base_pos_x << std::endl;
-    std::cout<< "ecef_base_pos_y " << smoothing_parameter.ecef_base_pos_y << std::endl;
-    std::cout<< "ecef_base_pos_z " << smoothing_parameter.ecef_base_pos_z << std::endl;
-
-    std::cout << "gnss_rate " << smoothing_parameter.gnss_rate << std::endl;
-    std::cout << "moving_judgment_threshold " << smoothing_parameter.moving_judgment_threshold << std::endl;
-    std::cout << "moving_average_time " << smoothing_parameter.moving_average_time << std::endl;
-    std::cout << "moving_ratio_threshold " << smoothing_parameter.moving_ratio_threshold << std::endl;
   }
   catch (YAML::Exception& e)
   {

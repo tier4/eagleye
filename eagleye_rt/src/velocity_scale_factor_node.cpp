@@ -48,6 +48,7 @@ struct VelocityScaleFactorStatus _velocity_scale_factor_status;
 std::string _use_gnss_mode;
 
 bool _is_first_move = false;
+bool _save_log_file = false;
 
 std::string _velocity_scale_factor_save_str;
 double _saved_vsf_estimater_number;
@@ -165,25 +166,27 @@ void load_velocity_scale_factor(std::string txt_path)
 
 void on_timer()
 {
-  if(!_velocity_scale_factor.status.enabled_status && _saved_vsf_estimater_number >= _velocity_scale_factor_status.estimated_number)
+  if(_save_log_file)
   {
+    if(!_velocity_scale_factor.status.enabled_status && _saved_vsf_estimater_number >= _velocity_scale_factor_status.estimated_number)
+    {
+      std::ofstream csv_file(_velocity_scale_factor_save_str);
+      return;
+    }
+
     std::ofstream csv_file(_velocity_scale_factor_save_str);
-    return;
+    csv_file << "estimated_number";
+    csv_file << "\n";
+    csv_file << _velocity_scale_factor_status.estimated_number;
+    csv_file << "\n";
+    csv_file << "velocity_scale_factor";
+    csv_file << "\n";
+    csv_file << _velocity_scale_factor_status.velocity_scale_factor_last;
+    csv_file << "\n";
+    csv_file.close();
+
+    _saved_vsf_estimater_number = _velocity_scale_factor_status.estimated_number;
   }
-
-  std::ofstream csv_file(_velocity_scale_factor_save_str);
-  csv_file << "estimated_number";
-  csv_file << "\n";
-  csv_file << _velocity_scale_factor_status.estimated_number;
-  csv_file << "\n";
-  csv_file << "velocity_scale_factor";
-  csv_file << "\n";
-  csv_file << _velocity_scale_factor_status.velocity_scale_factor_last;
-  csv_file << "\n";
-  csv_file.close();
-
-  _saved_vsf_estimater_number = _velocity_scale_factor_status.estimated_number;
-
   return;
 }
 
@@ -222,28 +225,14 @@ int main(int argc, char** argv)
     node->declare_parameter("velocity_scale_factor.save_velocity_scale_factor",_velocity_scale_factor_parameter.save_velocity_scale_factor);
     node->declare_parameter("velocity_scale_factor.velocity_scale_factor_save_duration",velocity_scale_factor_save_duration);
     node->declare_parameter("velocity_scale_factor.th_velocity_scale_factor_percent",_th_velocity_scale_factor_percent);
+    node->declare_parameter("velocity_scale_factor.save_log_file",_save_log_file);
 
     node->get_parameter("velocity_scale_factor_save_str",_velocity_scale_factor_save_str);
     node->get_parameter("velocity_scale_factor.save_velocity_scale_factor",_velocity_scale_factor_parameter.save_velocity_scale_factor);
     node->get_parameter("velocity_scale_factor.velocity_scale_factor_save_duration",velocity_scale_factor_save_duration);
     node->get_parameter("velocity_scale_factor.th_velocity_scale_factor_percent",_th_velocity_scale_factor_percent);
+    node->get_parameter("velocity_scale_factor.save_log_file",_save_log_file);
 
-    std::cout << "use_gnss_mode " << _use_gnss_mode << std::endl;
-
-    std::cout << "subscribe_twist_topic_name " << subscribe_twist_topic_name << std::endl;
-    std::cout << "subscribe_rtklib_nav_topic_name " << subscribe_rtklib_nav_topic_name << std::endl;
-
-    std::cout << "gnss_rate " << _velocity_scale_factor_parameter.gnss_rate << std::endl;
-    std::cout << "moving_judgment_threshold " << _velocity_scale_factor_parameter.moving_judgment_threshold << std::endl;
-
-    std::cout << "estimated_minimum_interval " << _velocity_scale_factor_parameter.estimated_minimum_interval << std::endl;
-    std::cout << "estimated_maximum_interval " << _velocity_scale_factor_parameter.estimated_maximum_interval << std::endl;
-    std::cout << "gnss_receiving_threshold " << _velocity_scale_factor_parameter.gnss_receiving_threshold << std::endl;
-
-    std::cout<< "velocity_scale_factor_save_str " << _velocity_scale_factor_save_str << std::endl;
-    std::cout<< "save_velocity_scale_factor " << _velocity_scale_factor_parameter.save_velocity_scale_factor << std::endl;
-    std::cout<< "velocity_scale_factor_save_duration " << velocity_scale_factor_save_duration << std::endl;
-    std::cout<< "th_velocity_scale_factor_percent "<<_th_velocity_scale_factor_percent<<std::endl;
   }
   catch (YAML::Exception& e)
   {

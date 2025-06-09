@@ -94,9 +94,6 @@ void imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
   imu = *msg;
   slip_coefficient_estimate(imu,rtklib_nav,velocity,yaw_rate_offset_stop,yaw_rate_offset_2nd,heading_interpolate_3rd,slip_coefficient_parameter,&slip_coefficient_status,&estimate_coefficient);
 
-  std::cout << "--- \033[1;34m slip_coefficient \033[m ------------------------------"<< std::endl;
-  std::cout<<"\033[1m estimate_coefficient \033[m "<<estimate_coefficient<<std::endl;
-  std::cout << std::endl;
 }
 
 int main(int argc, char** argv)
@@ -126,16 +123,7 @@ int main(int argc, char** argv)
     slip_coefficient_parameter.curve_judgment_threshold = conf["/**"]["ros__parameters"]["slip_coefficient"]["curve_judgment_threshold"].as<double>();
     slip_coefficient_parameter.lever_arm = conf["/**"]["ros__parameters"]["slip_coefficient"]["lever_arm"].as<double>();
 
-    std::cout<< "use_can_less_mode " << use_can_less_mode << std::endl;
 
-    std::cout << "imu_rate " << slip_coefficient_parameter.imu_rate << std::endl;
-    std::cout << "stop_judgment_threshold " << slip_coefficient_parameter.stop_judgment_threshold << std::endl;
-    std::cout << "moving_judgment_threshold " << slip_coefficient_parameter.moving_judgment_threshold << std::endl;
-
-    std::cout << "estimated_minimum_interval " << slip_coefficient_parameter.estimated_minimum_interval << std::endl;
-    std::cout << "estimated_maximum_interval " << slip_coefficient_parameter.estimated_maximum_interval << std::endl;
-    std::cout << "curve_judgment_threshold " << slip_coefficient_parameter.curve_judgment_threshold << std::endl;
-    std::cout << "lever_arm " << slip_coefficient_parameter.lever_arm << std::endl;
   }
   catch (YAML::Exception& e)
   {

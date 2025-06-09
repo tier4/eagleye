@@ -111,8 +111,6 @@ int main(int argc, char** argv)
     slip_angle_parameter.stop_judgment_threshold = conf["/**"]["ros__parameters"]["common"]["stop_judgment_threshold"].as<double>();
     slip_angle_parameter.manual_coefficient = conf["/**"]["ros__parameters"]["slip_angle"]["manual_coefficient"].as<double>();
 
-    std::cout << "stop_judgment_threshold " << slip_angle_parameter.stop_judgment_threshold << std::endl;
-    std::cout << "manual_coefficient " << slip_angle_parameter.manual_coefficient << std::endl;
   }
   catch (YAML::Exception& e)
   {

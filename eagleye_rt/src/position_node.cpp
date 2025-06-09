@@ -189,27 +189,6 @@ int main(int argc, char** argv)
     position_parameter.gnss_receiving_threshold = conf["/**"]["ros__parameters"]["heading"]["gnss_receiving_threshold"].as<double>();
     position_parameter.outlier_ratio_threshold = conf["/**"]["ros__parameters"]["position"]["outlier_ratio_threshold"].as<double>();
 
-    std::cout<< "use_gnss_mode " << use_gnss_mode << std::endl;
-    std::cout<< "use_can_less_mode " << use_can_less_mode << std::endl;
-
-    std::cout<< "subscribe_rtklib_nav_topic_name " << subscribe_rtklib_nav_topic_name << std::endl;
-
-    std::cout<< "ecef_base_pos_x " << position_parameter.ecef_base_pos_x << std::endl;
-    std::cout<< "ecef_base_pos_y " << position_parameter.ecef_base_pos_y << std::endl;
-    std::cout<< "ecef_base_pos_z " << position_parameter.ecef_base_pos_z << std::endl;
-
-    std::cout<< "tf_gnss_frame/parent " << position_parameter.tf_gnss_parent_frame << std::endl;
-    std::cout<< "tf_gnss_frame/child " << position_parameter.tf_gnss_child_frame << std::endl;
-
-    std::cout << "imu_rate " << position_parameter.imu_rate << std::endl;
-    std::cout << "gnss_rate " << position_parameter.gnss_rate << std::endl;
-    std::cout << "moving_judgment_threshold " << position_parameter.moving_judgment_threshold << std::endl;
-
-    std::cout << "estimated_interval " << position_parameter.estimated_interval << std::endl;
-    std::cout << "update_distance " << position_parameter.update_distance << std::endl;
-    std::cout << "outlier_threshold " << position_parameter.outlier_threshold << std::endl;
-    std::cout << "gnss_receiving_threshold " << position_parameter.gnss_receiving_threshold << std::endl;
-    std::cout << "outlier_ratio_threshold " << position_parameter.outlier_ratio_threshold << std::endl;
   }
   catch (YAML::Exception& e)
   {

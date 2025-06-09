@@ -144,15 +144,6 @@ int main(int argc, char** argv)
     _rolling_parameter.sync_judgment_threshold = conf["/**"]["ros__parameters"]["enable_additional_rolling"]["sync_judgment_threshold"].as<double>();
     _rolling_parameter.sync_search_period = conf["/**"]["ros__parameters"]["enable_additional_rolling"]["sync_search_period"].as<double>();
 
-    std::cout<< "subscribe_localization_pose_topic_name " << subscribe_localization_pose_topic_name << std::endl;
-
-    std::cout << "imu_rate " << _rolling_parameter.imu_rate << std::endl;
-    std::cout << "stop_judgment_threshold " << _rolling_parameter.stop_judgment_threshold << std::endl;
-
-    std::cout << "update_distance " << _rolling_parameter.update_distance << std::endl;
-    std::cout << "moving_average_time " << _rolling_parameter.moving_average_time << std::endl;
-    std::cout << "sync_judgment_threshold " << _rolling_parameter.sync_judgment_threshold << std::endl;
-    std::cout << "sync_search_period " << _rolling_parameter.sync_search_period << std::endl;
   }
   catch (YAML::Exception& e)
   {

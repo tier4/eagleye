@@ -129,14 +129,7 @@ int main(int argc, char** argv)
         _yaw_rate_offset_parameter.gnss_receiving_threshold = conf["/**"]["ros__parameters"]["yaw_rate_offset"]["gnss_receiving_threshold"].as<double>();
         _yaw_rate_offset_parameter.outlier_threshold = conf["/**"]["ros__parameters"]["yaw_rate_offset_stop"]["outlier_threshold"].as<double>();
 
-        std::cout << "imu_rate " << _yaw_rate_offset_parameter.imu_rate << std::endl;
-        std::cout << "gnss_rate " << _yaw_rate_offset_parameter.gnss_rate << std::endl;
-        std::cout << "moving_judgment_threshold " << _yaw_rate_offset_parameter.moving_judgment_threshold << std::endl;
 
-        std::cout << "estimated_minimum_interval " << _yaw_rate_offset_parameter.estimated_minimum_interval << std::endl;
-        std::cout << "estimated_maximum_interval " << _yaw_rate_offset_parameter.estimated_maximum_interval << std::endl;
-        std::cout << "gnss_receiving_threshold " << _yaw_rate_offset_parameter.gnss_receiving_threshold << std::endl;
-        std::cout << "outlier_threshold " << _yaw_rate_offset_parameter.outlier_threshold << std::endl;
       }
       catch (YAML::Exception& e)
       {
@@ -162,14 +155,6 @@ int main(int argc, char** argv)
         _yaw_rate_offset_parameter.gnss_receiving_threshold = conf["/**"]["ros__parameters"]["yaw_rate_offset"]["gnss_receiving_threshold"].as<double>();
         _yaw_rate_offset_parameter.outlier_threshold = conf["/**"]["ros__parameters"]["yaw_rate_offset_stop"]["outlier_threshold"].as<double>();
 
-        std::cout << "imu_rate " << _yaw_rate_offset_parameter.imu_rate << std::endl;
-        std::cout << "gnss_rate " << _yaw_rate_offset_parameter.gnss_rate << std::endl;
-        std::cout << "moving_judgment_threshold " << _yaw_rate_offset_parameter.moving_judgment_threshold << std::endl;
-
-        std::cout << "estimated_minimum_interval " << _yaw_rate_offset_parameter.estimated_minimum_interval << std::endl;
-        std::cout << "estimated_maximum_interval " << _yaw_rate_offset_parameter.estimated_maximum_interval << std::endl;
-        std::cout << "gnss_receiving_threshold " << _yaw_rate_offset_parameter.gnss_receiving_threshold << std::endl;
-        std::cout << "outlier_threshold " << _yaw_rate_offset_parameter.outlier_threshold << std::endl;
       }
       catch (YAML::Exception& e)
       {

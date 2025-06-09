@@ -157,17 +157,6 @@ int main(int argc, char** argv)
     rtk_dead_reckoning_parameter.rtk_fix_STD = conf["/**"]["ros__parameters"]["rtk_dead_reckoning"]["rtk_fix_STD"].as<double>();
     rtk_dead_reckoning_parameter.proc_noise = conf["/**"]["ros__parameters"]["rtk_dead_reckoning"]["proc_noise"].as<double>();
 
-    std::cout << "use_gnss_mode " << use_gnss_mode << std::endl;
-
-    std::cout << "ecef_base_pos_x " << rtk_dead_reckoning_parameter.ecef_base_pos_x << std::endl;
-    std::cout << "ecef_base_pos_y " << rtk_dead_reckoning_parameter.ecef_base_pos_y << std::endl;
-    std::cout << "ecef_base_pos_z " << rtk_dead_reckoning_parameter.ecef_base_pos_z << std::endl;
-    std::cout << "use_ecef_base_position " << rtk_dead_reckoning_parameter.use_ecef_base_position << std::endl;
-    std::cout << "tf_gnss_frame/parent " << rtk_dead_reckoning_parameter.tf_gnss_parent_frame << std::endl;
-    std::cout << "tf_gnss_frame/child " << rtk_dead_reckoning_parameter.tf_gnss_child_frame << std::endl;
-    std::cout << "stop_judgment_threshold " << rtk_dead_reckoning_parameter.stop_judgment_threshold << std::endl;
-    std::cout << "rtk_fix_STD " << rtk_dead_reckoning_parameter.rtk_fix_STD << std::endl;
-    std::cout << "proc_noise " << rtk_dead_reckoning_parameter.proc_noise << std::endl;
   }
   catch (YAML::Exception& e)
   {
