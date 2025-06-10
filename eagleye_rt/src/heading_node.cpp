@@ -120,17 +120,17 @@ void imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
 {
   if (!is_first_correction_velocity)
   {
-    RCLCPP_WARN(rclcpp::get_logger(node_name), "is_first_correction_velocity is false.");
+    RCLCPP_DEBUG(rclcpp::get_logger(node_name), "is_first_correction_velocity is false.");
     return;
   }
   if(use_can_less_mode && !velocity_status.status.enabled_status)
   {
-    RCLCPP_WARN(rclcpp::get_logger(node_name), "velocity_status is not enabled.");
+    RCLCPP_DEBUG(rclcpp::get_logger(node_name), "velocity_status is not enabled.");
     return;
   }
   if(!yaw_rate_offset_stop.status.enabled_status)
   {
-    RCLCPP_WARN(rclcpp::get_logger(node_name), "Heading estimation is not started because the stop calibration is not yet completed.");
+    RCLCPP_DEBUG(rclcpp::get_logger(node_name), "Heading estimation is not started because the stop calibration is not yet completed.");
     return;
   }
 
