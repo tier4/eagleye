@@ -96,16 +96,16 @@ void imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
     return;
   }
 
-  if (_use_gnss_mode == "rtklib" || _use_gnss_mode == "RTKLIB") // use RTKLIB mode
-  {
-    velocity_scale_factor_estimate(_rtklib_nav,_velocity,_velocity_scale_factor_parameter,
-      &_velocity_scale_factor_status,&_correction_velocity,&_velocity_scale_factor);
-  }
-  else if (_use_gnss_mode == "nmea" || _use_gnss_mode == "NMEA") // use NMEA mode
-  {
-    velocity_scale_factor_estimate(_nmea_rmc,_velocity,_velocity_scale_factor_parameter,
-      &_velocity_scale_factor_status,&_correction_velocity,&_velocity_scale_factor);
-  }
+  // if (_use_gnss_mode == "rtklib" || _use_gnss_mode == "RTKLIB") // use RTKLIB mode
+  // {
+  //   velocity_scale_factor_estimate(_rtklib_nav,_velocity,_velocity_scale_factor_parameter,
+  //     &_velocity_scale_factor_status,&_correction_velocity,&_velocity_scale_factor);
+  // }
+  // else if (_use_gnss_mode == "nmea" || _use_gnss_mode == "NMEA") // use NMEA mode
+  // {
+  //   velocity_scale_factor_estimate(_nmea_rmc,_velocity,_velocity_scale_factor_parameter,
+  //     &_velocity_scale_factor_status,&_correction_velocity,&_velocity_scale_factor);
+  // }
 
   _velocity_scale_factor.status.is_abnormal = false;
   if (!std::isfinite(_velocity_scale_factor.scale_factor)) {
