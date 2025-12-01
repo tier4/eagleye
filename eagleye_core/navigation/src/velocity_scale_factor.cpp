@@ -110,21 +110,22 @@ void velocity_scale_factor_estimate_(const geometry_msgs::msg::TwistStamped velo
 
     index_length = std::distance(index.begin(), index.end());
 
-    if (index_length > velocity_scale_factor_status->estimated_number * enabled_data_ratio)
-    {
-      for (i = 0; i < index_length; i++)
-      {
-        velocity_scale_factor_buffer.push_back(velocity_scale_factor_status->doppler_velocity_buffer[index[i]] /
-          velocity_scale_factor_status->velocity_buffer[index[i]]);
-      }
+    // if (index_length > velocity_scale_factor_status->estimated_number * enabled_data_ratio)
+    // {
+    //   for (i = 0; i < index_length; i++)
+    //   {
+    //     velocity_scale_factor_buffer.push_back(velocity_scale_factor_status->doppler_velocity_buffer[index[i]] /
+    //       velocity_scale_factor_status->velocity_buffer[index[i]]);
+    //   }
 
-      velocity_scale_factor->status.estimate_status = true;
-      velocity_scale_factor_status->estimate_start_status = true;
-    }
-    else
-    {
-      velocity_scale_factor->status.estimate_status = false;
-    }
+    //   velocity_scale_factor->status.estimate_status = true;
+    //   velocity_scale_factor_status->estimate_start_status = true;
+    // }
+    // else
+    // {
+    //   velocity_scale_factor->status.estimate_status = false;
+    // }
+    velocity_scale_factor->status.estimate_status = false;
   }
   else
   {
