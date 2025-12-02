@@ -106,6 +106,10 @@ ament_auto_add_executable(rtk_heading
   src/rtk_heading_node.cpp
 )
 
+ament_auto_add_executable(heading_yawrate_estimator
+  src/heading_yawrate_estimator_node.cpp
+)
+
 ament_auto_add_executable(velocity_estimator
   src/velocity_estimator_node.cpp
 )
@@ -129,6 +133,7 @@ install(TARGETS
   angular_velocity_offset_stop
   enable_additional_rolling
   rolling
+  heading_yawrate_estimator
   DESTINATION lib/$(PROJECT_NAME)
 )
 
