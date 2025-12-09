@@ -14,6 +14,7 @@
 #include <eagleye_msgs/msg/heading.hpp>
 #include <eagleye_msgs/msg/yawrate_offset.hpp>
 #include <eagleye_msgs/msg/slip_angle.hpp>
+#include <eagleye_msgs/msg/rolling.hpp>
 
 class HeadingYawrateEstimatorNode : public rclcpp::Node
 {
@@ -26,8 +27,8 @@ private:
   void rmc_callback(const nmea_msgs::msg::Gprmc::ConstSharedPtr msg);
   void velocity_callback(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg);
   void velocity_status_callback(const eagleye_msgs::msg::StatusStamped::ConstSharedPtr msg);
+  void velocity_scale_factor_callback(const eagleye_msgs::msg::VelocityScaleFactor::ConstSharedPtr msg);
   void yaw_rate_offset_stop_callback(const eagleye_msgs::msg::YawrateOffset::ConstSharedPtr msg);
-  void slip_angle_callback(const eagleye_msgs::msg::SlipAngle::ConstSharedPtr msg);
   void pose_callback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr msg);
   void imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg);
 
@@ -36,8 +37,8 @@ private:
   rclcpp::Subscription<nmea_msgs::msg::Gprmc>::SharedPtr sub_rmc_;
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr sub_velocity_;
   rclcpp::Subscription<eagleye_msgs::msg::StatusStamped>::SharedPtr sub_velocity_status_;
+  rclcpp::Subscription<eagleye_msgs::msg::VelocityScaleFactor>::SharedPtr sub_velocity_scale_factor_;
   rclcpp::Subscription<eagleye_msgs::msg::YawrateOffset>::SharedPtr sub_yaw_rate_offset_stop_;
-  rclcpp::Subscription<eagleye_msgs::msg::SlipAngle>::SharedPtr sub_slip_angle_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_pose_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;
 
@@ -53,13 +54,20 @@ private:
   rclcpp::Publisher<eagleye_msgs::msg::Heading>::SharedPtr pub_heading_3rd_;
   rclcpp::Publisher<eagleye_msgs::msg::Heading>::SharedPtr pub_heading_interpolate_3rd_;
 
+  rclcpp::Publisher<eagleye_msgs::msg::SlipAngle>::SharedPtr pub_slip_angle_;
+
+  rclcpp::Publisher<eagleye_msgs::msg::Rolling>::SharedPtr pub_rolling_;
+
   // Input Data
   rtklib_msgs::msg::RtklibNav rtklib_nav_;
   nmea_msgs::msg::Gprmc nmea_rmc_;
   geometry_msgs::msg::TwistStamped velocity_;
   eagleye_msgs::msg::StatusStamped velocity_status_;
+  eagleye_msgs::msg::VelocityScaleFactor velocity_scale_factor_;
   eagleye_msgs::msg::YawrateOffset yaw_rate_offset_stop_;
   eagleye_msgs::msg::SlipAngle slip_angle_;
+  eagleye_msgs::msg::Rolling rolling_;
+  RollingStatus rolling_status_;
   eagleye_msgs::msg::Heading multi_antenna_heading_;
   sensor_msgs::msg::Imu imu_;
 
@@ -68,6 +76,8 @@ private:
   HeadingInterpolateParameter heading_interpolate_parameter_;
   YawrateOffsetParameter yaw_rate_offset_parameter_;
   YawrateOffsetParameter yaw_rate_offset_parameter_2nd_;
+  SlipangleParameter slip_angle_parameter_;
+  RollingParameter rolling_parameter_;
   
   std::string use_gnss_mode_;
   bool use_can_less_mode_ = false;

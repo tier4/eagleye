@@ -11,6 +11,13 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   yaw_rate_offset_status_1st_ = {};
   yaw_rate_offset_status_2nd_ = {};
 
+  slip_angle_.header.frame_id = "base_link";
+  slip_angle_.status.enabled_status = false;
+  slip_angle_.status.estimate_status = false;
+
+  rolling_status_ = {};
+  rolling_.header.frame_id = "base_link";
+
   // Parameter declaration & loading
   std::string yaml_file;
   declare_parameter("yaml_file", yaml_file);
@@ -57,6 +64,15 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
 
     yaw_rate_offset_parameter_2nd_ = yaw_rate_offset_parameter_;
     yaw_rate_offset_parameter_2nd_.estimated_maximum_interval = conf["/**"]["ros__parameters"]["yaw_rate_offset"]["2nd"]["estimated_maximum_interval"].as<double>();
+
+    // Slip Angle Parameters
+    slip_angle_parameter_.stop_judgment_threshold = heading_parameter_.stop_judgment_threshold;
+    slip_angle_parameter_.manual_coefficient = conf["/**"]["ros__parameters"]["slip_angle"]["manual_coefficient"].as<double>();
+
+    // Rolling Parameters
+    rolling_parameter_.stop_judgment_threshold = heading_parameter_.stop_judgment_threshold;
+    rolling_parameter_.filter_process_noise = conf["/**"]["ros__parameters"]["rolling"]["filter_process_noise"].as<double>();
+    rolling_parameter_.filter_observation_noise = conf["/**"]["ros__parameters"]["rolling"]["filter_observation_noise"].as<double>();
   }
   catch (YAML::Exception& e)
   {
@@ -74,8 +90,8 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   sub_pose_ = create_subscription<geometry_msgs::msg::PoseStamped>("gnss_compass_pose", 1000, std::bind(&HeadingYawrateEstimatorNode::pose_callback, this, std::placeholders::_1));
   sub_velocity_ = create_subscription<geometry_msgs::msg::TwistStamped>("velocity", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::velocity_callback, this, std::placeholders::_1));
   sub_velocity_status_ = create_subscription<eagleye_msgs::msg::StatusStamped>("velocity_status", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::velocity_status_callback, this, std::placeholders::_1));
+  sub_velocity_scale_factor_ = create_subscription<eagleye_msgs::msg::VelocityScaleFactor>("velocity_scale_factor", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::velocity_scale_factor_callback, this, std::placeholders::_1));
   sub_yaw_rate_offset_stop_ = create_subscription<eagleye_msgs::msg::YawrateOffset>("yaw_rate_offset_stop", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::yaw_rate_offset_stop_callback, this, std::placeholders::_1));
-  sub_slip_angle_ = create_subscription<eagleye_msgs::msg::SlipAngle>("slip_angle", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::slip_angle_callback, this, std::placeholders::_1));
 
   // Publishers
   // 1st
@@ -92,6 +108,10 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   pub_heading_3rd_ = create_publisher<eagleye_msgs::msg::Heading>("heading_3rd", rclcpp::QoS(10));
   pub_heading_interpolate_3rd_ = create_publisher<eagleye_msgs::msg::Heading>("heading_interpolate_3rd", rclcpp::QoS(10));
 
+  pub_slip_angle_ = create_publisher<eagleye_msgs::msg::SlipAngle>("slip_angle", rclcpp::QoS(10));
+
+  pub_rolling_ = create_publisher<eagleye_msgs::msg::Rolling>("rolling", rclcpp::QoS(10));
+
   if(use_multi_antenna_mode_)
   {
     is_first_correction_velocity_ = true;
@@ -102,8 +122,9 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
 void HeadingYawrateEstimatorNode::rtklib_nav_callback(const rtklib_msgs::msg::RtklibNav::ConstSharedPtr msg) { rtklib_nav_ = *msg; }
 void HeadingYawrateEstimatorNode::rmc_callback(const nmea_msgs::msg::Gprmc::ConstSharedPtr msg) { nmea_rmc_ = *msg; }
 void HeadingYawrateEstimatorNode::velocity_status_callback(const eagleye_msgs::msg::StatusStamped::ConstSharedPtr msg) { velocity_status_ = *msg; }
+void HeadingYawrateEstimatorNode::velocity_scale_factor_callback(const eagleye_msgs::msg::VelocityScaleFactor::ConstSharedPtr msg) { velocity_scale_factor_ = *msg; }
 void HeadingYawrateEstimatorNode::yaw_rate_offset_stop_callback(const eagleye_msgs::msg::YawrateOffset::ConstSharedPtr msg) { yaw_rate_offset_stop_ = *msg; }
-void HeadingYawrateEstimatorNode::slip_angle_callback(const eagleye_msgs::msg::SlipAngle::ConstSharedPtr msg) { slip_angle_ = *msg; }
+
 
 void HeadingYawrateEstimatorNode::velocity_callback(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg)
 {
@@ -134,6 +155,25 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
   imu_ = *msg;
   bool use_rtklib_mode = (use_gnss_mode_ == "rtklib" || use_gnss_mode_ == "RTKLIB");
   bool use_nmea_mode = (use_gnss_mode_ == "nmea" || use_gnss_mode_ == "NMEA");
+
+  // ==================================================================================
+  // Slip Angle Estimation
+  // ==================================================================================
+  slip_angle_.header = msg->header;
+  slip_angle_.header.frame_id = "base_link";
+
+  eagleye_msgs::msg::StatusStamped velocity_enable_status;
+  if (use_can_less_mode_)
+  {
+    velocity_enable_status = velocity_status_;
+  }
+  else
+  {
+    velocity_enable_status.header = velocity_scale_factor_.header;
+    velocity_enable_status.status = velocity_scale_factor_.status;
+  }
+
+  slip_angle_estimate(imu_, velocity_, velocity_enable_status, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, slip_angle_parameter_, &slip_angle_);
 
   // ==================================================================================
   // 1st 
@@ -179,6 +219,13 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
   yaw_rate_offset_estimate(velocity_, yaw_rate_offset_stop_, heading_interpolate_2nd_, imu_, yaw_rate_offset_parameter_2nd_, &yaw_rate_offset_status_2nd_, &yaw_rate_offset_2nd_);
 
   // ==================================================================================
+  // Rolling Estimation (Uses YawRate Offset 2nd)
+  // ==================================================================================
+  rolling_.header = msg->header;
+  rolling_.header.frame_id = "base_link";
+  rolling_estimate(imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, rolling_parameter_, &rolling_status_, &rolling_);
+
+  // ==================================================================================
   // 3rd
   // ==================================================================================
 
@@ -207,6 +254,10 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
   pub_heading_3rd_->publish(heading_3rd_);
   pub_heading_interpolate_3rd_->publish(heading_interpolate_3rd_);
 
+  pub_slip_angle_->publish(slip_angle_);
+
+  pub_rolling_->publish(rolling_);
+
   heading_1st_.status.estimate_status = false;
   heading_interpolate_1st_.status.estimate_status = false;
   yaw_rate_offset_1st_.status.estimate_status = false;
@@ -217,6 +268,10 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
 
   heading_3rd_.status.estimate_status = false;
   heading_interpolate_3rd_.status.estimate_status = false;
+
+  slip_angle_.status.estimate_status = false;
+
+  rolling_.status.estimate_status = false;
 }
 
 int main(int argc, char** argv)
