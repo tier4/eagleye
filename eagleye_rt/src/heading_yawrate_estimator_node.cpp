@@ -12,6 +12,9 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   yaw_rate_offset_status_2nd_ = {};
   yaw_rate_offset_stop_status_ = {};
   rolling_status_ = {};
+  rtk_heading_status_1st_ = {};
+  rtk_heading_status_2nd_ = {};
+  rtk_heading_status_3rd_ = {};
 
   slip_angle_.header.frame_id = "base_link";
   slip_angle_.status.enabled_status = false;
@@ -37,6 +40,9 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   declare_parameter("velocity_scale_factor.save_velocity_scale_factor", velocity_scale_factor_parameter_.save_velocity_scale_factor);
   declare_parameter("velocity_scale_factor.velocity_scale_factor_save_duration", velocity_scale_factor_save_duration);
   declare_parameter("velocity_scale_factor.th_velocity_scale_factor_percent", th_velocity_scale_factor_percent_);
+
+  declare_parameter("use_rtk_heading_mode", false); // Default to false (standard heading)
+  get_parameter("use_rtk_heading_mode", use_rtk_heading_mode_);
 
   try
   {
@@ -99,6 +105,19 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
     velocity_scale_factor_parameter_.estimated_maximum_interval = conf["/**"]["ros__parameters"]["velocity_scale_factor"]["estimated_maximum_interval"].as<double>();
     velocity_scale_factor_parameter_.gnss_receiving_threshold = conf["/**"]["ros__parameters"]["velocity_scale_factor"]["gnss_receiving_threshold"].as<double>();
 
+    // RTK Heading Parameters
+    rtk_heading_parameter_.imu_rate = heading_parameter_.imu_rate;
+    rtk_heading_parameter_.gnss_rate = heading_parameter_.gnss_rate;
+    rtk_heading_parameter_.stop_judgment_threshold = heading_parameter_.stop_judgment_threshold;
+    rtk_heading_parameter_.slow_judgment_threshold = conf["/**"]["ros__parameters"]["common"]["slow_judgment_threshold"].as<double>();
+    rtk_heading_parameter_.update_distance = conf["/**"]["ros__parameters"]["rtk_heading"]["update_distance"].as<double>();
+    rtk_heading_parameter_.estimated_minimum_interval = conf["/**"]["ros__parameters"]["rtk_heading"]["estimated_minimum_interval"].as<double>();
+    rtk_heading_parameter_.estimated_maximum_interval = conf["/**"]["ros__parameters"]["rtk_heading"]["estimated_maximum_interval"].as<double>();
+    rtk_heading_parameter_.gnss_receiving_threshold = conf["/**"]["ros__parameters"]["rtk_heading"]["gnss_receiving_threshold"].as<double>();
+    rtk_heading_parameter_.outlier_threshold = conf["/**"]["ros__parameters"]["rtk_heading"]["outlier_threshold"].as<double>();
+    rtk_heading_parameter_.outlier_ratio_threshold = conf["/**"]["ros__parameters"]["rtk_heading"]["outlier_ratio_threshold"].as<double>();
+    rtk_heading_parameter_.curve_judgment_threshold = conf["/**"]["ros__parameters"]["rtk_heading"]["curve_judgment_threshold"].as<double>();
+
     // Load ROS parameters for VSF
     get_parameter("velocity_scale_factor_save_str", velocity_scale_factor_save_str_);
     get_parameter("velocity_scale_factor.save_velocity_scale_factor", velocity_scale_factor_parameter_.save_velocity_scale_factor);
@@ -121,6 +140,8 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   sub_pose_ = create_subscription<geometry_msgs::msg::PoseStamped>("gnss_compass_pose", 1000, std::bind(&HeadingYawrateEstimatorNode::pose_callback, this, std::placeholders::_1));
   sub_velocity_status_ = create_subscription<eagleye_msgs::msg::StatusStamped>("velocity_status", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::velocity_status_callback, this, std::placeholders::_1));
   sub_vehicle_twist_ = create_subscription<geometry_msgs::msg::TwistStamped>("vehicle/twist", 1000, std::bind(&HeadingYawrateEstimatorNode::vehicle_twist_callback, this, std::placeholders::_1));
+  sub_gga_ = create_subscription<nmea_msgs::msg::Gpgga>("gnss/gga", 1000, std::bind(&HeadingYawrateEstimatorNode::gga_callback, this, std::placeholders::_1));
+  sub_distance_ = create_subscription<eagleye_msgs::msg::Distance>("distance", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::distance_callback, this, std::placeholders::_1));
   
   // Publishers
   // 1st
@@ -162,6 +183,8 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
 void HeadingYawrateEstimatorNode::rtklib_nav_callback(const rtklib_msgs::msg::RtklibNav::ConstSharedPtr msg) { rtklib_nav_ = *msg; }
 void HeadingYawrateEstimatorNode::rmc_callback(const nmea_msgs::msg::Gprmc::ConstSharedPtr msg) { nmea_rmc_ = *msg; }
 void HeadingYawrateEstimatorNode::velocity_status_callback(const eagleye_msgs::msg::StatusStamped::ConstSharedPtr msg) { velocity_status_ = *msg; }
+void HeadingYawrateEstimatorNode::gga_callback(const nmea_msgs::msg::Gpgga::ConstSharedPtr msg) { nmea_gga_ = *msg; }
+void HeadingYawrateEstimatorNode::distance_callback(const eagleye_msgs::msg::Distance::ConstSharedPtr msg) { distance_ = *msg; }
 
 void HeadingYawrateEstimatorNode::vehicle_twist_callback(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg)
 {
@@ -287,7 +310,10 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
   
   heading_1st_.header = msg->header;
   heading_1st_.header.frame_id = "base_link";
-  if (use_rtklib_mode && !use_multi_antenna_mode_)
+
+  if (use_rtk_heading_mode_)
+    rtk_heading_estimate(nmea_gga_, imu_, corrected_velocity_, distance_, yaw_rate_offset_stop_, yaw_rate_offset_stop_, slip_angle_, heading_interpolate_1st_, rtk_heading_parameter_, &rtk_heading_status_1st_, &heading_1st_);
+  else if (use_rtklib_mode && !use_multi_antenna_mode_)
     heading_estimate(rtklib_nav_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_stop_, slip_angle_, heading_interpolate_1st_, heading_parameter_, &heading_status_1st_, &heading_1st_);
   else if (use_nmea_mode && !use_multi_antenna_mode_)
     heading_estimate(nmea_rmc_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_stop_, slip_angle_, heading_interpolate_1st_, heading_parameter_, &heading_status_1st_, &heading_1st_);
@@ -307,7 +333,9 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
 
   heading_2nd_.header = msg->header;
   heading_2nd_.header.frame_id = "base_link";
-  if (use_rtklib_mode && !use_multi_antenna_mode_)
+  if (use_rtk_heading_mode_)
+    rtk_heading_estimate(nmea_gga_, imu_, corrected_velocity_, distance_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, slip_angle_, heading_interpolate_2nd_, rtk_heading_parameter_, &rtk_heading_status_2nd_, &heading_2nd_);
+  else if (use_rtklib_mode && !use_multi_antenna_mode_)
     heading_estimate(rtklib_nav_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, slip_angle_, heading_interpolate_2nd_, heading_parameter_, &heading_status_2nd_, &heading_2nd_);
   else if (use_nmea_mode && !use_multi_antenna_mode_)
     heading_estimate(nmea_rmc_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, slip_angle_, heading_interpolate_2nd_, heading_parameter_, &heading_status_2nd_, &heading_2nd_);
@@ -334,7 +362,9 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
 
   heading_3rd_.header = msg->header;
   heading_3rd_.header.frame_id = "base_link";
-  if (use_rtklib_mode && !use_multi_antenna_mode_)
+  if (use_rtk_heading_mode_)
+    rtk_heading_estimate(nmea_gga_, imu_, corrected_velocity_, distance_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, slip_angle_, heading_interpolate_3rd_, rtk_heading_parameter_, &rtk_heading_status_3rd_, &heading_3rd_);
+  else if (use_rtklib_mode && !use_multi_antenna_mode_)
     heading_estimate(rtklib_nav_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, slip_angle_, heading_interpolate_3rd_, heading_parameter_, &heading_status_3rd_, &heading_3rd_);
   else if (use_nmea_mode && !use_multi_antenna_mode_)
     heading_estimate(nmea_rmc_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, slip_angle_, heading_interpolate_3rd_, heading_parameter_, &heading_status_3rd_, &heading_3rd_);

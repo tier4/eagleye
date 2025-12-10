@@ -9,6 +9,7 @@
 
 #include <rtklib_msgs/msg/rtklib_nav.hpp>
 #include <nmea_msgs/msg/gprmc.hpp>
+#include <nmea_msgs/msg/gpgga.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -31,6 +32,8 @@ private:
   void velocity_status_callback(const eagleye_msgs::msg::StatusStamped::ConstSharedPtr msg);
   void pose_callback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr msg);
   void imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg);
+  void gga_callback(const nmea_msgs::msg::Gpgga::ConstSharedPtr msg);
+  void distance_callback(const eagleye_msgs::msg::Distance::ConstSharedPtr msg);
   
   void on_timer();
 
@@ -44,6 +47,8 @@ private:
   rclcpp::Subscription<eagleye_msgs::msg::StatusStamped>::SharedPtr sub_velocity_status_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_pose_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;
+  rclcpp::Subscription<nmea_msgs::msg::Gpgga>::SharedPtr sub_gga_;
+  rclcpp::Subscription<eagleye_msgs::msg::Distance>::SharedPtr sub_distance_;
 
   // Publishers (Publishing final results, and optionally intermediate results)
   rclcpp::Publisher<eagleye_msgs::msg::YawrateOffset>::SharedPtr pub_yaw_rate_offset_stop_;
@@ -66,7 +71,8 @@ private:
   // Input Data
   rtklib_msgs::msg::RtklibNav rtklib_nav_;
   nmea_msgs::msg::Gprmc nmea_rmc_;
-  // geometry_msgs::msg::TwistStamped velocity_;
+  nmea_msgs::msg::Gpgga nmea_gga_;
+  eagleye_msgs::msg::Distance distance_;
   eagleye_msgs::msg::StatusStamped velocity_status_;
   eagleye_msgs::msg::VelocityScaleFactor velocity_scale_factor_;
   eagleye_msgs::msg::YawrateOffset yaw_rate_offset_stop_;
@@ -96,14 +102,14 @@ private:
   bool is_first_correction_velocity_ = false;
   bool is_first_move_ = false;
 
+  bool use_rtk_heading_mode_ = false;
+
   // Velocity Scale Factor specific variables
   std::string velocity_scale_factor_save_str_;
   double saved_vsf_estimater_number_ = 0.0;
   double saved_velocity_scale_factor_ = 1.0;
   double previous_velocity_scale_factor_ = 1.0;
   double th_velocity_scale_factor_percent_ = 20.0;
-
-  bool has_valid_velocity() const { return is_first_move_; }
 
   // Internal State Variables for Iterative Estimation
   // 1st Stage
@@ -127,6 +133,12 @@ private:
   HeadingStatus heading_status_3rd_;
   eagleye_msgs::msg::Heading heading_interpolate_3rd_;
   HeadingInterpolateStatus heading_interpolate_status_3rd_;
+
+  // RTK Heading 
+  RtkHeadingParameter rtk_heading_parameter_;
+  RtkHeadingStatus rtk_heading_status_1st_;
+  RtkHeadingStatus rtk_heading_status_2nd_;
+  RtkHeadingStatus rtk_heading_status_3rd_;
 
   double previous_yaw_rate_offset_stop_ = 0.0;
 };
