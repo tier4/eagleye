@@ -18,6 +18,9 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   rolling_status_ = {};
   rolling_.header.frame_id = "base_link";
 
+  yaw_rate_offset_stop_status_ = {};
+  yaw_rate_offset_stop_.header.frame_id = "base_link";
+
   // Parameter declaration & loading
   std::string yaml_file;
   declare_parameter("yaml_file", yaml_file);
@@ -73,6 +76,12 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
     rolling_parameter_.stop_judgment_threshold = heading_parameter_.stop_judgment_threshold;
     rolling_parameter_.filter_process_noise = conf["/**"]["ros__parameters"]["rolling"]["filter_process_noise"].as<double>();
     rolling_parameter_.filter_observation_noise = conf["/**"]["ros__parameters"]["rolling"]["filter_observation_noise"].as<double>();
+
+    // Yawrate Offset Stop Parameters
+    yaw_rate_offset_stop_parameter_.imu_rate = heading_parameter_.imu_rate;
+    yaw_rate_offset_stop_parameter_.stop_judgment_threshold = heading_parameter_.stop_judgment_threshold;
+    yaw_rate_offset_stop_parameter_.estimated_interval = conf["/**"]["ros__parameters"]["yaw_rate_offset_stop"]["estimated_interval"].as<double>();
+    yaw_rate_offset_stop_parameter_.outlier_threshold = conf["/**"]["ros__parameters"]["yaw_rate_offset_stop"]["outlier_threshold"].as<double>();
   }
   catch (YAML::Exception& e)
   {
@@ -91,8 +100,7 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   sub_velocity_ = create_subscription<geometry_msgs::msg::TwistStamped>("velocity", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::velocity_callback, this, std::placeholders::_1));
   sub_velocity_status_ = create_subscription<eagleye_msgs::msg::StatusStamped>("velocity_status", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::velocity_status_callback, this, std::placeholders::_1));
   sub_velocity_scale_factor_ = create_subscription<eagleye_msgs::msg::VelocityScaleFactor>("velocity_scale_factor", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::velocity_scale_factor_callback, this, std::placeholders::_1));
-  sub_yaw_rate_offset_stop_ = create_subscription<eagleye_msgs::msg::YawrateOffset>("yaw_rate_offset_stop", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::yaw_rate_offset_stop_callback, this, std::placeholders::_1));
-
+  
   // Publishers
   // 1st
   pub_heading_1st_ = create_publisher<eagleye_msgs::msg::Heading>("heading_1st", rclcpp::QoS(10));
@@ -108,9 +116,14 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   pub_heading_3rd_ = create_publisher<eagleye_msgs::msg::Heading>("heading_3rd", rclcpp::QoS(10));
   pub_heading_interpolate_3rd_ = create_publisher<eagleye_msgs::msg::Heading>("heading_interpolate_3rd", rclcpp::QoS(10));
 
+  // Slip Angle
   pub_slip_angle_ = create_publisher<eagleye_msgs::msg::SlipAngle>("slip_angle", rclcpp::QoS(10));
 
+  // Rolling
   pub_rolling_ = create_publisher<eagleye_msgs::msg::Rolling>("rolling", rclcpp::QoS(10));
+
+  // Yawrate Offset Stop
+  pub_yaw_rate_offset_stop_ = create_publisher<eagleye_msgs::msg::YawrateOffset>("yaw_rate_offset_stop", rclcpp::QoS(10));
 
   if(use_multi_antenna_mode_)
   {
@@ -123,8 +136,6 @@ void HeadingYawrateEstimatorNode::rtklib_nav_callback(const rtklib_msgs::msg::Rt
 void HeadingYawrateEstimatorNode::rmc_callback(const nmea_msgs::msg::Gprmc::ConstSharedPtr msg) { nmea_rmc_ = *msg; }
 void HeadingYawrateEstimatorNode::velocity_status_callback(const eagleye_msgs::msg::StatusStamped::ConstSharedPtr msg) { velocity_status_ = *msg; }
 void HeadingYawrateEstimatorNode::velocity_scale_factor_callback(const eagleye_msgs::msg::VelocityScaleFactor::ConstSharedPtr msg) { velocity_scale_factor_ = *msg; }
-void HeadingYawrateEstimatorNode::yaw_rate_offset_stop_callback(const eagleye_msgs::msg::YawrateOffset::ConstSharedPtr msg) { yaw_rate_offset_stop_ = *msg; }
-
 
 void HeadingYawrateEstimatorNode::velocity_callback(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg)
 {
@@ -148,11 +159,38 @@ void HeadingYawrateEstimatorNode::pose_callback(const geometry_msgs::msg::PoseSt
 
 void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
 {
-  if (!is_first_correction_velocity_) return;
-  if (use_can_less_mode_ && !velocity_status_.status.enabled_status) return;
-  if (!yaw_rate_offset_stop_.status.enabled_status) return;
+  // if (!is_first_correction_velocity_) return;
+  // if (use_can_less_mode_ && !velocity_status_.status.enabled_status) return;
 
   imu_ = *msg;
+
+  // ==================================================================================
+  // YawRate Offset Stop Estimation
+  // ==================================================================================
+  yaw_rate_offset_stop_.header = msg->header;
+  yaw_rate_offset_stop_estimate(velocity_, imu_, yaw_rate_offset_stop_parameter_, &yaw_rate_offset_stop_status_, &yaw_rate_offset_stop_);
+  yaw_rate_offset_stop_.status.is_abnormal = false;
+  if (!std::isfinite(yaw_rate_offset_stop_.yaw_rate_offset)) {
+    yaw_rate_offset_stop_.yaw_rate_offset = previous_yaw_rate_offset_stop_;
+    yaw_rate_offset_stop_.status.is_abnormal = true;
+    yaw_rate_offset_stop_.status.error_code = eagleye_msgs::msg::Status::NAN_OR_INFINITE;
+  } else {
+    previous_yaw_rate_offset_stop_ = yaw_rate_offset_stop_.yaw_rate_offset;
+  }
+  pub_yaw_rate_offset_stop_->publish(yaw_rate_offset_stop_);
+
+  // check
+
+  if (!is_first_correction_velocity_) return; 
+  
+  if (use_can_less_mode_ && !velocity_status_.status.enabled_status) return;
+
+  if (!yaw_rate_offset_stop_.status.enabled_status) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, 
+      "Waiting for yaw_rate_offset_stop to be enabled (Calibrating stop bias...)");
+    return;
+  }
+
   bool use_rtklib_mode = (use_gnss_mode_ == "rtklib" || use_gnss_mode_ == "RTKLIB");
   bool use_nmea_mode = (use_gnss_mode_ == "nmea" || use_gnss_mode_ == "NMEA");
 

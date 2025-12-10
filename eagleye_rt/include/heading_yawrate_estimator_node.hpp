@@ -28,7 +28,6 @@ private:
   void velocity_callback(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg);
   void velocity_status_callback(const eagleye_msgs::msg::StatusStamped::ConstSharedPtr msg);
   void velocity_scale_factor_callback(const eagleye_msgs::msg::VelocityScaleFactor::ConstSharedPtr msg);
-  void yaw_rate_offset_stop_callback(const eagleye_msgs::msg::YawrateOffset::ConstSharedPtr msg);
   void pose_callback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr msg);
   void imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg);
 
@@ -38,11 +37,12 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr sub_velocity_;
   rclcpp::Subscription<eagleye_msgs::msg::StatusStamped>::SharedPtr sub_velocity_status_;
   rclcpp::Subscription<eagleye_msgs::msg::VelocityScaleFactor>::SharedPtr sub_velocity_scale_factor_;
-  rclcpp::Subscription<eagleye_msgs::msg::YawrateOffset>::SharedPtr sub_yaw_rate_offset_stop_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_pose_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;
 
   // Publishers (Publishing final results, and optionally intermediate results)
+  rclcpp::Publisher<eagleye_msgs::msg::YawrateOffset>::SharedPtr pub_yaw_rate_offset_stop_;
+
   rclcpp::Publisher<eagleye_msgs::msg::Heading>::SharedPtr pub_heading_1st_;
   rclcpp::Publisher<eagleye_msgs::msg::Heading>::SharedPtr pub_heading_interpolate_1st_;
   rclcpp::Publisher<eagleye_msgs::msg::YawrateOffset>::SharedPtr pub_yaw_rate_offset_1st_;
@@ -70,6 +70,7 @@ private:
   RollingStatus rolling_status_;
   eagleye_msgs::msg::Heading multi_antenna_heading_;
   sensor_msgs::msg::Imu imu_;
+  YawrateOffsetStopStatus yaw_rate_offset_stop_status_;
 
   // Parameters
   HeadingParameter heading_parameter_;
@@ -78,6 +79,7 @@ private:
   YawrateOffsetParameter yaw_rate_offset_parameter_2nd_;
   SlipangleParameter slip_angle_parameter_;
   RollingParameter rolling_parameter_;
+  YawrateOffsetStopParameter yaw_rate_offset_stop_parameter_;
   
   std::string use_gnss_mode_;
   bool use_can_less_mode_ = false;
@@ -106,6 +108,8 @@ private:
   HeadingStatus heading_status_3rd_;
   eagleye_msgs::msg::Heading heading_interpolate_3rd_;
   HeadingInterpolateStatus heading_interpolate_status_3rd_;
+
+  double previous_yaw_rate_offset_stop_ = 0.0;
 };
 
 #endif // HEADING_YAWRATE_ESTIMATOR_NODE_HPP
