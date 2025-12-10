@@ -10,16 +10,19 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   heading_interpolate_status_3rd_ = {};
   yaw_rate_offset_status_1st_ = {};
   yaw_rate_offset_status_2nd_ = {};
+  yaw_rate_offset_stop_status_ = {};
+  rolling_status_ = {};
 
   slip_angle_.header.frame_id = "base_link";
   slip_angle_.status.enabled_status = false;
   slip_angle_.status.estimate_status = false;
 
-  rolling_status_ = {};
   rolling_.header.frame_id = "base_link";
-
-  yaw_rate_offset_stop_status_ = {};
   yaw_rate_offset_stop_.header.frame_id = "base_link";
+
+  velocity_scale_factor_.header.frame_id = "base_link";
+  velocity_scale_factor_.scale_factor = 1.0;
+  corrected_velocity_.header.frame_id = "base_link";
 
   // Parameter declaration & loading
   std::string yaml_file;
@@ -28,7 +31,12 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   declare_parameter("use_multi_antenna_mode", use_multi_antenna_mode_);
   get_parameter("use_multi_antenna_mode", use_multi_antenna_mode_);
 
-  std::cout << "yaml_file: " << yaml_file << std::endl;
+  // Velocity Scale Factor specific parameters
+  double velocity_scale_factor_save_duration = 100.0;
+  declare_parameter("velocity_scale_factor_save_str", velocity_scale_factor_save_str_);
+  declare_parameter("velocity_scale_factor.save_velocity_scale_factor", velocity_scale_factor_parameter_.save_velocity_scale_factor);
+  declare_parameter("velocity_scale_factor.velocity_scale_factor_save_duration", velocity_scale_factor_save_duration);
+  declare_parameter("velocity_scale_factor.th_velocity_scale_factor_percent", th_velocity_scale_factor_percent_);
 
   try
   {
@@ -82,6 +90,20 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
     yaw_rate_offset_stop_parameter_.stop_judgment_threshold = heading_parameter_.stop_judgment_threshold;
     yaw_rate_offset_stop_parameter_.estimated_interval = conf["/**"]["ros__parameters"]["yaw_rate_offset_stop"]["estimated_interval"].as<double>();
     yaw_rate_offset_stop_parameter_.outlier_threshold = conf["/**"]["ros__parameters"]["yaw_rate_offset_stop"]["outlier_threshold"].as<double>();
+
+    // Velocity Scale Factor Parameters
+    velocity_scale_factor_parameter_.imu_rate = heading_parameter_.imu_rate;
+    velocity_scale_factor_parameter_.gnss_rate = heading_parameter_.gnss_rate;
+    velocity_scale_factor_parameter_.moving_judgment_threshold = heading_parameter_.moving_judgment_threshold;
+    velocity_scale_factor_parameter_.estimated_minimum_interval = conf["/**"]["ros__parameters"]["velocity_scale_factor"]["estimated_minimum_interval"].as<double>();
+    velocity_scale_factor_parameter_.estimated_maximum_interval = conf["/**"]["ros__parameters"]["velocity_scale_factor"]["estimated_maximum_interval"].as<double>();
+    velocity_scale_factor_parameter_.gnss_receiving_threshold = conf["/**"]["ros__parameters"]["velocity_scale_factor"]["gnss_receiving_threshold"].as<double>();
+
+    // Load ROS parameters for VSF
+    get_parameter("velocity_scale_factor_save_str", velocity_scale_factor_save_str_);
+    get_parameter("velocity_scale_factor.save_velocity_scale_factor", velocity_scale_factor_parameter_.save_velocity_scale_factor);
+    get_parameter("velocity_scale_factor.velocity_scale_factor_save_duration", velocity_scale_factor_save_duration);
+    get_parameter("velocity_scale_factor.th_velocity_scale_factor_percent", th_velocity_scale_factor_percent_);
   }
   catch (YAML::Exception& e)
   {
@@ -97,9 +119,8 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   sub_rtklib_nav_ = create_subscription<rtklib_msgs::msg::RtklibNav>(subscribe_rtklib_nav_topic_name, 1000, std::bind(&HeadingYawrateEstimatorNode::rtklib_nav_callback, this, std::placeholders::_1));
   sub_rmc_ = create_subscription<nmea_msgs::msg::Gprmc>(subscribe_rmc_topic_name, 1000, std::bind(&HeadingYawrateEstimatorNode::rmc_callback, this, std::placeholders::_1));
   sub_pose_ = create_subscription<geometry_msgs::msg::PoseStamped>("gnss_compass_pose", 1000, std::bind(&HeadingYawrateEstimatorNode::pose_callback, this, std::placeholders::_1));
-  sub_velocity_ = create_subscription<geometry_msgs::msg::TwistStamped>("velocity", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::velocity_callback, this, std::placeholders::_1));
   sub_velocity_status_ = create_subscription<eagleye_msgs::msg::StatusStamped>("velocity_status", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::velocity_status_callback, this, std::placeholders::_1));
-  sub_velocity_scale_factor_ = create_subscription<eagleye_msgs::msg::VelocityScaleFactor>("velocity_scale_factor", rclcpp::QoS(10), std::bind(&HeadingYawrateEstimatorNode::velocity_scale_factor_callback, this, std::placeholders::_1));
+  sub_vehicle_twist_ = create_subscription<geometry_msgs::msg::TwistStamped>("vehicle/twist", 1000, std::bind(&HeadingYawrateEstimatorNode::vehicle_twist_callback, this, std::placeholders::_1));
   
   // Publishers
   // 1st
@@ -116,18 +137,24 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   pub_heading_3rd_ = create_publisher<eagleye_msgs::msg::Heading>("heading_3rd", rclcpp::QoS(10));
   pub_heading_interpolate_3rd_ = create_publisher<eagleye_msgs::msg::Heading>("heading_interpolate_3rd", rclcpp::QoS(10));
 
-  // Slip Angle
   pub_slip_angle_ = create_publisher<eagleye_msgs::msg::SlipAngle>("slip_angle", rclcpp::QoS(10));
-
-  // Rolling
   pub_rolling_ = create_publisher<eagleye_msgs::msg::Rolling>("rolling", rclcpp::QoS(10));
-
-  // Yawrate Offset Stop
   pub_yaw_rate_offset_stop_ = create_publisher<eagleye_msgs::msg::YawrateOffset>("yaw_rate_offset_stop", rclcpp::QoS(10));
+
+  pub_velocity_ = create_publisher<geometry_msgs::msg::TwistStamped>("velocity", rclcpp::QoS(10));
+  pub_velocity_scale_factor_ = create_publisher<eagleye_msgs::msg::VelocityScaleFactor>("velocity_scale_factor", rclcpp::QoS(10));
 
   if(use_multi_antenna_mode_)
   {
     is_first_correction_velocity_ = true;
+  }
+
+  if(velocity_scale_factor_parameter_.save_velocity_scale_factor)
+  {
+    auto timer_callback = std::bind(&HeadingYawrateEstimatorNode::on_timer, this);
+    const auto period_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(velocity_scale_factor_save_duration));
+    timer_ = create_wall_timer(period_ns, timer_callback);
+    load_velocity_scale_factor(velocity_scale_factor_save_str_);
   }
 }
 
@@ -135,14 +162,13 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
 void HeadingYawrateEstimatorNode::rtklib_nav_callback(const rtklib_msgs::msg::RtklibNav::ConstSharedPtr msg) { rtklib_nav_ = *msg; }
 void HeadingYawrateEstimatorNode::rmc_callback(const nmea_msgs::msg::Gprmc::ConstSharedPtr msg) { nmea_rmc_ = *msg; }
 void HeadingYawrateEstimatorNode::velocity_status_callback(const eagleye_msgs::msg::StatusStamped::ConstSharedPtr msg) { velocity_status_ = *msg; }
-void HeadingYawrateEstimatorNode::velocity_scale_factor_callback(const eagleye_msgs::msg::VelocityScaleFactor::ConstSharedPtr msg) { velocity_scale_factor_ = *msg; }
 
-void HeadingYawrateEstimatorNode::velocity_callback(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg)
+void HeadingYawrateEstimatorNode::vehicle_twist_callback(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg)
 {
-  velocity_ = *msg;
-  if (!is_first_correction_velocity_ && msg->twist.linear.x > heading_parameter_.moving_judgment_threshold)
+  vehicle_twist_ = *msg;
+  if (!is_first_move_ && msg->twist.linear.x > heading_parameter_.moving_judgment_threshold)
   {
-    is_first_correction_velocity_ = true;
+    is_first_move_ = true;
   }
 }
 
@@ -159,16 +185,63 @@ void HeadingYawrateEstimatorNode::pose_callback(const geometry_msgs::msg::PoseSt
 
 void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
 {
-  // if (!is_first_correction_velocity_) return;
-  // if (use_can_less_mode_ && !velocity_status_.status.enabled_status) return;
-
   imu_ = *msg;
+
+
+  // ==================================================================================
+  // 1. Velocity Scale Factor Estimation (Preprocessing)
+  // ==================================================================================
+  velocity_scale_factor_.header = msg->header;
+  velocity_scale_factor_.header.frame_id = "base_link";
+  corrected_velocity_.header = msg->header;
+  corrected_velocity_.header.frame_id = "base_link";
+
+  if (!is_first_move_)
+  {
+    velocity_scale_factor_.scale_factor = saved_velocity_scale_factor_;
+    corrected_velocity_.twist = vehicle_twist_.twist;
+  }
+  else
+  {
+    if (use_gnss_mode_ == "rtklib" || use_gnss_mode_ == "RTKLIB")
+    {
+      velocity_scale_factor_estimate(rtklib_nav_, vehicle_twist_, velocity_scale_factor_parameter_,
+        &velocity_scale_factor_status_, &corrected_velocity_, &velocity_scale_factor_);
+    }
+    else if (use_gnss_mode_ == "nmea" || use_gnss_mode_ == "NMEA")
+    {
+      velocity_scale_factor_estimate(nmea_rmc_, vehicle_twist_, velocity_scale_factor_parameter_,
+        &velocity_scale_factor_status_, &corrected_velocity_, &velocity_scale_factor_);
+    }
+
+    velocity_scale_factor_.status.is_abnormal = false;
+    if (!std::isfinite(velocity_scale_factor_.scale_factor)) {
+      corrected_velocity_.twist.linear.x = vehicle_twist_.twist.linear.x * previous_velocity_scale_factor_;
+      velocity_scale_factor_.scale_factor = previous_velocity_scale_factor_;
+      velocity_scale_factor_.status.is_abnormal = true;
+      velocity_scale_factor_.status.error_code = eagleye_msgs::msg::Status::NAN_OR_INFINITE;
+    }
+    else if (th_velocity_scale_factor_percent_ / 100 < std::abs(1.0 - velocity_scale_factor_.scale_factor))
+    {
+      corrected_velocity_.twist.linear.x = vehicle_twist_.twist.linear.x * previous_velocity_scale_factor_;
+      velocity_scale_factor_.scale_factor = previous_velocity_scale_factor_;
+      velocity_scale_factor_.status.is_abnormal = true;
+      velocity_scale_factor_.status.error_code = eagleye_msgs::msg::Status::TOO_LARGE_OR_SMALL;
+    }
+    else
+    {
+      previous_velocity_scale_factor_ = velocity_scale_factor_.scale_factor;
+    }
+  }
+
+  pub_velocity_->publish(corrected_velocity_);
+  pub_velocity_scale_factor_->publish(velocity_scale_factor_);
 
   // ==================================================================================
   // YawRate Offset Stop Estimation
   // ==================================================================================
   yaw_rate_offset_stop_.header = msg->header;
-  yaw_rate_offset_stop_estimate(velocity_, imu_, yaw_rate_offset_stop_parameter_, &yaw_rate_offset_stop_status_, &yaw_rate_offset_stop_);
+  yaw_rate_offset_stop_estimate(corrected_velocity_, imu_, yaw_rate_offset_stop_parameter_, &yaw_rate_offset_stop_status_, &yaw_rate_offset_stop_);
   yaw_rate_offset_stop_.status.is_abnormal = false;
   if (!std::isfinite(yaw_rate_offset_stop_.yaw_rate_offset)) {
     yaw_rate_offset_stop_.yaw_rate_offset = previous_yaw_rate_offset_stop_;
@@ -180,10 +253,17 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
   pub_yaw_rate_offset_stop_->publish(yaw_rate_offset_stop_);
 
   // check
+  if (!is_first_move_) return;
 
-  if (!is_first_correction_velocity_) return; 
-  
-  if (use_can_less_mode_ && !velocity_status_.status.enabled_status) return;
+  eagleye_msgs::msg::StatusStamped current_velocity_status;
+  if (use_can_less_mode_) {
+    current_velocity_status = velocity_status_;
+  } else {
+    current_velocity_status.header = velocity_scale_factor_.header;
+    current_velocity_status.status = velocity_scale_factor_.status;
+  }
+
+  if (use_can_less_mode_ && !current_velocity_status.status.enabled_status) return;
 
   if (!yaw_rate_offset_stop_.status.enabled_status) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, 
@@ -199,19 +279,7 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
   // ==================================================================================
   slip_angle_.header = msg->header;
   slip_angle_.header.frame_id = "base_link";
-
-  eagleye_msgs::msg::StatusStamped velocity_enable_status;
-  if (use_can_less_mode_)
-  {
-    velocity_enable_status = velocity_status_;
-  }
-  else
-  {
-    velocity_enable_status.header = velocity_scale_factor_.header;
-    velocity_enable_status.status = velocity_scale_factor_.status;
-  }
-
-  slip_angle_estimate(imu_, velocity_, velocity_enable_status, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, slip_angle_parameter_, &slip_angle_);
+  slip_angle_estimate(imu_, corrected_velocity_, current_velocity_status, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, slip_angle_parameter_, &slip_angle_);
 
   // ==================================================================================
   // 1st 
@@ -220,20 +288,18 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
   heading_1st_.header = msg->header;
   heading_1st_.header.frame_id = "base_link";
   if (use_rtklib_mode && !use_multi_antenna_mode_)
-    heading_estimate(rtklib_nav_, imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_stop_, slip_angle_, heading_interpolate_1st_, heading_parameter_, &heading_status_1st_, &heading_1st_);
+    heading_estimate(rtklib_nav_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_stop_, slip_angle_, heading_interpolate_1st_, heading_parameter_, &heading_status_1st_, &heading_1st_);
   else if (use_nmea_mode && !use_multi_antenna_mode_)
-    heading_estimate(nmea_rmc_, imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_stop_, slip_angle_, heading_interpolate_1st_, heading_parameter_, &heading_status_1st_, &heading_1st_);
+    heading_estimate(nmea_rmc_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_stop_, slip_angle_, heading_interpolate_1st_, heading_parameter_, &heading_status_1st_, &heading_1st_);
   else if (use_multi_antenna_mode_)
-    heading_estimate(multi_antenna_heading_, imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_stop_, slip_angle_, heading_interpolate_1st_, heading_parameter_, &heading_status_1st_, &heading_1st_);
-
+    heading_estimate(multi_antenna_heading_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_stop_, slip_angle_, heading_interpolate_1st_, heading_parameter_, &heading_status_1st_, &heading_1st_);
   heading_interpolate_1st_.header = msg->header;
   heading_interpolate_1st_.header.frame_id = "base_link";
-  heading_interpolate_estimate(imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, heading_1st_, slip_angle_, heading_interpolate_parameter_, &heading_interpolate_status_1st_, &heading_interpolate_1st_);
+  heading_interpolate_estimate(imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, heading_1st_, slip_angle_, heading_interpolate_parameter_, &heading_interpolate_status_1st_, &heading_interpolate_1st_);
 
   yaw_rate_offset_1st_.header = msg->header;
   yaw_rate_offset_1st_.header.frame_id = "base_link";
-  yaw_rate_offset_estimate(velocity_, yaw_rate_offset_stop_, heading_interpolate_1st_, imu_, yaw_rate_offset_parameter_, &yaw_rate_offset_status_1st_, &yaw_rate_offset_1st_);
-
+  yaw_rate_offset_estimate(corrected_velocity_, yaw_rate_offset_stop_, heading_interpolate_1st_, imu_, yaw_rate_offset_parameter_, &yaw_rate_offset_status_1st_, &yaw_rate_offset_1st_);
 
   // ==================================================================================
   // 2nd
@@ -242,26 +308,25 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
   heading_2nd_.header = msg->header;
   heading_2nd_.header.frame_id = "base_link";
   if (use_rtklib_mode && !use_multi_antenna_mode_)
-    heading_estimate(rtklib_nav_, imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, slip_angle_, heading_interpolate_2nd_, heading_parameter_, &heading_status_2nd_, &heading_2nd_);
+    heading_estimate(rtklib_nav_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, slip_angle_, heading_interpolate_2nd_, heading_parameter_, &heading_status_2nd_, &heading_2nd_);
   else if (use_nmea_mode && !use_multi_antenna_mode_)
-    heading_estimate(nmea_rmc_, imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, slip_angle_, heading_interpolate_2nd_, heading_parameter_, &heading_status_2nd_, &heading_2nd_);
+    heading_estimate(nmea_rmc_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, slip_angle_, heading_interpolate_2nd_, heading_parameter_, &heading_status_2nd_, &heading_2nd_);
   else if (use_multi_antenna_mode_)
-    heading_estimate(multi_antenna_heading_, imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, slip_angle_, heading_interpolate_2nd_, heading_parameter_, &heading_status_2nd_, &heading_2nd_);
+    heading_estimate(multi_antenna_heading_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, slip_angle_, heading_interpolate_2nd_, heading_parameter_, &heading_status_2nd_, &heading_2nd_);
 
   heading_interpolate_2nd_.header = msg->header;
   heading_interpolate_2nd_.header.frame_id = "base_link";
-  heading_interpolate_estimate(imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, heading_2nd_, slip_angle_, heading_interpolate_parameter_, &heading_interpolate_status_2nd_, &heading_interpolate_2nd_);
-
+  heading_interpolate_estimate(imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_1st_, heading_2nd_, slip_angle_, heading_interpolate_parameter_, &heading_interpolate_status_2nd_, &heading_interpolate_2nd_);
   yaw_rate_offset_2nd_.header = msg->header;
   yaw_rate_offset_2nd_.header.frame_id = "base_link";
-  yaw_rate_offset_estimate(velocity_, yaw_rate_offset_stop_, heading_interpolate_2nd_, imu_, yaw_rate_offset_parameter_2nd_, &yaw_rate_offset_status_2nd_, &yaw_rate_offset_2nd_);
+  yaw_rate_offset_estimate(corrected_velocity_, yaw_rate_offset_stop_, heading_interpolate_2nd_, imu_, yaw_rate_offset_parameter_2nd_, &yaw_rate_offset_status_2nd_, &yaw_rate_offset_2nd_);
 
   // ==================================================================================
   // Rolling Estimation (Uses YawRate Offset 2nd)
   // ==================================================================================
   rolling_.header = msg->header;
   rolling_.header.frame_id = "base_link";
-  rolling_estimate(imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, rolling_parameter_, &rolling_status_, &rolling_);
+  rolling_estimate(imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, rolling_parameter_, &rolling_status_, &rolling_);
 
   // ==================================================================================
   // 3rd
@@ -270,15 +335,15 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
   heading_3rd_.header = msg->header;
   heading_3rd_.header.frame_id = "base_link";
   if (use_rtklib_mode && !use_multi_antenna_mode_)
-    heading_estimate(rtklib_nav_, imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, slip_angle_, heading_interpolate_3rd_, heading_parameter_, &heading_status_3rd_, &heading_3rd_);
+    heading_estimate(rtklib_nav_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, slip_angle_, heading_interpolate_3rd_, heading_parameter_, &heading_status_3rd_, &heading_3rd_);
   else if (use_nmea_mode && !use_multi_antenna_mode_)
-    heading_estimate(nmea_rmc_, imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, slip_angle_, heading_interpolate_3rd_, heading_parameter_, &heading_status_3rd_, &heading_3rd_);
+    heading_estimate(nmea_rmc_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, slip_angle_, heading_interpolate_3rd_, heading_parameter_, &heading_status_3rd_, &heading_3rd_);
   else if (use_multi_antenna_mode_)
-    heading_estimate(multi_antenna_heading_, imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, slip_angle_, heading_interpolate_3rd_, heading_parameter_, &heading_status_3rd_, &heading_3rd_);
+    heading_estimate(multi_antenna_heading_, imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, slip_angle_, heading_interpolate_3rd_, heading_parameter_, &heading_status_3rd_, &heading_3rd_);
 
   heading_interpolate_3rd_.header = msg->header;
   heading_interpolate_3rd_.header.frame_id = "base_link";
-  heading_interpolate_estimate(imu_, velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, heading_3rd_, slip_angle_, heading_interpolate_parameter_, &heading_interpolate_status_3rd_, &heading_interpolate_3rd_);
+  heading_interpolate_estimate(imu_, corrected_velocity_, yaw_rate_offset_stop_, yaw_rate_offset_2nd_, heading_3rd_, slip_angle_, heading_interpolate_parameter_, &heading_interpolate_status_3rd_, &heading_interpolate_3rd_);
 
 
   pub_heading_1st_->publish(heading_1st_);
@@ -310,6 +375,59 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
   slip_angle_.status.estimate_status = false;
 
   rolling_.status.estimate_status = false;
+}
+
+void HeadingYawrateEstimatorNode::load_velocity_scale_factor(std::string txt_path)
+{
+  std::ifstream ifs(txt_path);
+  if (!ifs)
+  {
+    RCLCPP_WARN(this->get_logger(), "Initial VelocityScaleFactor file not found: %s", txt_path.c_str());
+  }
+  else
+  {
+    RCLCPP_INFO(this->get_logger(), "Loaded the saved velocity scale factor!");
+    int count = 0;
+    std::string row;
+    while (getline(ifs, row))
+    {
+      if(count == 1)
+      {
+        saved_vsf_estimater_number_ = std::stod(row);
+      }
+      if(count == 3)
+      {
+        saved_velocity_scale_factor_ = std::stod(row);
+        velocity_scale_factor_status_.estimate_start_status = true;
+        velocity_scale_factor_status_.velocity_scale_factor_last = saved_velocity_scale_factor_;
+        velocity_scale_factor_.status.enabled_status = true;
+        velocity_scale_factor_.scale_factor = saved_velocity_scale_factor_;
+      }
+      count++;
+    }
+  }
+  ifs.close();
+}
+
+void HeadingYawrateEstimatorNode::on_timer()
+{
+  if(!velocity_scale_factor_.status.enabled_status && saved_vsf_estimater_number_ >= velocity_scale_factor_status_.estimated_number)
+  {
+    return;
+  }
+
+  std::ofstream csv_file(velocity_scale_factor_save_str_);
+  csv_file << "estimated_number";
+  csv_file << "\n";
+  csv_file << velocity_scale_factor_status_.estimated_number;
+  csv_file << "\n";
+  csv_file << "velocity_scale_factor";
+  csv_file << "\n";
+  csv_file << velocity_scale_factor_status_.velocity_scale_factor_last;
+  csv_file << "\n";
+  csv_file.close();
+
+  saved_vsf_estimater_number_ = velocity_scale_factor_status_.estimated_number;
 }
 
 int main(int argc, char** argv)
