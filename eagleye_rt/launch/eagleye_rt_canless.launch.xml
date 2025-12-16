@@ -21,7 +21,6 @@
     <node pkg="eagleye_rt" name="heading_yawrate_estimator" exec="heading_yawrate_estimator">
             <param from="$(var config_path)"/>
             <param name="yaml_file" value="$(var config_path)"/>
-            <param from="$(var config_path)"/>
             <param name="use_rtk_heading_mode" value="$(var use_rtk_heading)"/>
             <param name="velocity_scale_factor_save_str" value="$(find-pkg-share eagleye_rt)/config/velocity_scale_factor.txt"/>
             <param name="use_multi_antenna_mode" value="$(var use_multi_antenna_mode)"/>
