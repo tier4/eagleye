@@ -30,14 +30,6 @@ ament_auto_add_executable(correction_imu
   src/correction_imu.cpp
 )
 
-ament_auto_add_executable(distance
-  src/distance_node.cpp
-)
-
-ament_auto_add_executable(height
-  src/height_node.cpp
-)
-
 ament_auto_add_executable(monitor
   src/monitor_node.cpp
 )
@@ -62,10 +54,6 @@ ament_auto_add_executable(smoothing
   src/smoothing_node.cpp
 )
 
-ament_auto_add_executable(trajectory
-  src/trajectory_node.cpp
-)
-
 ament_auto_add_executable(angular_velocity_offset_stop
   src/angular_velocity_offset_stop_node.cpp
 )
@@ -78,6 +66,10 @@ ament_auto_add_executable(heading_yawrate_estimator
   src/heading_yawrate_estimator_node.cpp
 )
 
+ament_auto_add_executable(trajectory_estimator
+  src/trajectory_estimator_node.cpp
+)
+
 ament_auto_add_executable(velocity_estimator
   src/velocity_estimator_node.cpp
 )
@@ -85,13 +77,11 @@ ament_auto_add_executable(velocity_estimator
 install(TARGETS 
   tf_converted_imu
   correction_imu
-  distance
-  height
   monitor
   position_interpolate
   slip_coefficient
   smoothing
-  trajectory
+  trajectory_estimator
   angular_velocity_offset_stop
   enable_additional_rolling
   heading_yawrate_estimator
