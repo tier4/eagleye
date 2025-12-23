@@ -326,6 +326,14 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
   yaw_rate_offset_1st_.header = msg->header;
   yaw_rate_offset_1st_.header.frame_id = "base_link";
   yaw_rate_offset_estimate(corrected_velocity_, yaw_rate_offset_stop_, heading_interpolate_1st_, imu_, yaw_rate_offset_parameter_, &yaw_rate_offset_status_1st_, &yaw_rate_offset_1st_);
+  yaw_rate_offset_1st_.status.is_abnormal = false;
+  if (!std::isfinite(yaw_rate_offset_1st_.yaw_rate_offset)) {
+    yaw_rate_offset_1st_.yaw_rate_offset = previous_yaw_rate_offset_1st_;
+    yaw_rate_offset_1st_.status.is_abnormal = true;
+    yaw_rate_offset_1st_.status.error_code = eagleye_msgs::msg::Status::NAN_OR_INFINITE;
+  } else {
+    previous_yaw_rate_offset_1st_ = yaw_rate_offset_1st_.yaw_rate_offset;
+  } 
 
   // ==================================================================================
   // 2nd
@@ -348,6 +356,14 @@ void HeadingYawrateEstimatorNode::imu_callback(const sensor_msgs::msg::Imu::Cons
   yaw_rate_offset_2nd_.header = msg->header;
   yaw_rate_offset_2nd_.header.frame_id = "base_link";
   yaw_rate_offset_estimate(corrected_velocity_, yaw_rate_offset_stop_, heading_interpolate_2nd_, imu_, yaw_rate_offset_parameter_2nd_, &yaw_rate_offset_status_2nd_, &yaw_rate_offset_2nd_);
+  yaw_rate_offset_2nd_.status.is_abnormal = false;
+  if (!std::isfinite(yaw_rate_offset_2nd_.yaw_rate_offset)) {
+    yaw_rate_offset_2nd_.yaw_rate_offset = previous_yaw_rate_offset_2nd_;
+    yaw_rate_offset_2nd_.status.is_abnormal = true;
+    yaw_rate_offset_2nd_.status.error_code = eagleye_msgs::msg::Status::NAN_OR_INFINITE;
+  } else {
+    previous_yaw_rate_offset_2nd_ = yaw_rate_offset_2nd_.yaw_rate_offset;
+  }
 
   // ==================================================================================
   // Rolling Estimation (Uses YawRate Offset 2nd)

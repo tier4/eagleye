@@ -141,6 +141,8 @@ private:
   RtkHeadingStatus rtk_heading_status_3rd_;
 
   double previous_yaw_rate_offset_stop_ = 0.0;
+  double previous_yaw_rate_offset_1st_ = 0.0;
+  double previous_yaw_rate_offset_2nd_ = 0.0;
 };
 
 #endif // HEADING_YAWRATE_ESTIMATOR_NODE_HPP
