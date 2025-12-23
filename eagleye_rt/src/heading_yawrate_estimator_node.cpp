@@ -33,6 +33,8 @@ HeadingYawrateEstimatorNode::HeadingYawrateEstimatorNode() : Node("eagleye_headi
   get_parameter("yaml_file", yaml_file);
   declare_parameter("use_multi_antenna_mode", use_multi_antenna_mode_);
   get_parameter("use_multi_antenna_mode", use_multi_antenna_mode_);
+  declare_parameter("use_can_less_mode", use_can_less_mode_);
+  get_parameter("use_can_less_mode", use_can_less_mode_);
 
   // Velocity Scale Factor specific parameters
   double velocity_scale_factor_save_duration = 100.0;
