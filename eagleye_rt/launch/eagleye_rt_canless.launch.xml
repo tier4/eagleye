@@ -26,19 +26,12 @@
             <param name="use_multi_antenna_mode" value="$(var use_multi_antenna_mode)"/>
     </node>
 
-    <node pkg="eagleye_rt" name="distance_node" exec="distance">
-            <param from="$(var config_path)"/>
-            <param name="yaml_file" value="$(var config_path)"/>
+    <node pkg="eagleye_rt" name="trajectory_estimator" exec="trajectory_estimator">
+             <param from="$(var config_path)"/>
+             <param name="yaml_file" value="$(var config_path)"/>
     </node>
-    <node pkg="eagleye_rt" name="trajectory_node" exec="trajectory">
-            <param from="$(var config_path)"/>
-            <param name="yaml_file" value="$(var config_path)"/>
-    </node>
+
     <node pkg="eagleye_rt" name="smoothing_node" exec="smoothing">
-            <param from="$(var config_path)"/>
-            <param name="yaml_file" value="$(var config_path)"/>
-    </node>
-    <node pkg="eagleye_rt" name="height_node" exec="height">
             <param from="$(var config_path)"/>
             <param name="yaml_file" value="$(var config_path)"/>
     </node>
