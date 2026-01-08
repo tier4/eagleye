@@ -66,19 +66,20 @@ ament_auto_add_executable(velocity_estimator
   src/velocity_estimator_node.cpp
 )
 
-install(TARGETS 
+install(TARGETS
   tf_converted_imu
+  twist_relay
   correction_imu
   monitor
-  position_interpolate
   slip_coefficient
-  smoothing
+  enable_additional_rolling
+  angular_velocity_offset_stop
+  rtk_dead_reckoning
+  heading_yawrate_estimator
   trajectory_estimator
   position_estimator
-  angular_velocity_offset_stop
-  enable_additional_rolling
-  heading_yawrate_estimator
-  DESTINATION lib/$(PROJECT_NAME)
+  velocity_estimator
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 install(DIRECTORY config launch log
