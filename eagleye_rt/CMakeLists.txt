@@ -30,36 +30,8 @@ ament_auto_add_executable(correction_imu
   src/correction_imu.cpp
 )
 
-ament_auto_add_executable(distance
-  src/distance_node.cpp
-)
-
-ament_auto_add_executable(heading_interpolate
-  src/heading_interpolate_node.cpp
-)
-
-ament_auto_add_executable(heading
-  src/heading_node.cpp
-)
-
-ament_auto_add_executable(height
-  src/height_node.cpp
-)
-
 ament_auto_add_executable(monitor
   src/monitor_node.cpp
-)
-
-ament_auto_add_executable(position_interpolate
-  src/position_interpolate_node.cpp
-)
-
-ament_auto_add_executable(position
-  src/position_node.cpp
-)
-
-ament_auto_add_executable(slip_angle
-  src/slip_angle_node.cpp
 )
 
 ament_auto_add_executable(slip_coefficient
@@ -70,30 +42,6 @@ ament_auto_add_executable(enable_additional_rolling
   src/enable_additional_rolling_node.cpp
 )
 
-ament_auto_add_executable(rolling
-  src/rolling_node.cpp
-)
-
-ament_auto_add_executable(smoothing
-  src/smoothing_node.cpp
-)
-
-ament_auto_add_executable(trajectory
-  src/trajectory_node.cpp
-)
-
-ament_auto_add_executable(velocity_scale_factor
-  src/velocity_scale_factor_node.cpp
-)
-
-ament_auto_add_executable(yaw_rate_offset
-  src/yaw_rate_offset_node.cpp
-)
-
-ament_auto_add_executable(yaw_rate_offset_stop
-  src/yaw_rate_offset_stop_node.cpp
-)
-
 ament_auto_add_executable(angular_velocity_offset_stop
   src/angular_velocity_offset_stop_node.cpp
 )
@@ -102,34 +50,36 @@ ament_auto_add_executable(rtk_dead_reckoning
   src/rtk_dead_reckoning_node.cpp
 )
 
-ament_auto_add_executable(rtk_heading
-  src/rtk_heading_node.cpp
+ament_auto_add_executable(heading_yawrate_estimator
+  src/heading_yawrate_estimator_node.cpp
+)
+
+ament_auto_add_executable(trajectory_estimator
+  src/trajectory_estimator_node.cpp
+)
+
+ament_auto_add_executable(position_estimator
+  src/position_estimator_node.cpp
 )
 
 ament_auto_add_executable(velocity_estimator
   src/velocity_estimator_node.cpp
 )
 
-install(TARGETS 
+install(TARGETS
   tf_converted_imu
+  twist_relay
   correction_imu
-  distance
-  heading_interpolate
-  heading
-  height
   monitor
-  position_interpolate
-  slip_angle
   slip_coefficient
-  smoothing
-  trajectory
-  velocity_scale_factor
-  yaw_rate_offset
-  yaw_rate_offset_stop
-  angular_velocity_offset_stop
   enable_additional_rolling
-  rolling
-  DESTINATION lib/$(PROJECT_NAME)
+  angular_velocity_offset_stop
+  rtk_dead_reckoning
+  heading_yawrate_estimator
+  trajectory_estimator
+  position_estimator
+  velocity_estimator
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 install(DIRECTORY config launch log
