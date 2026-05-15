@@ -34,24 +34,12 @@ ament_auto_add_executable(monitor
   src/monitor_node.cpp
 )
 
-ament_auto_add_executable(position_interpolate
-  src/position_interpolate_node.cpp
-)
-
-ament_auto_add_executable(position
-  src/position_node.cpp
-)
-
 ament_auto_add_executable(slip_coefficient
   src/slip_coefficient_node.cpp
 )
 
 ament_auto_add_executable(enable_additional_rolling
   src/enable_additional_rolling_node.cpp
-)
-
-ament_auto_add_executable(smoothing
-  src/smoothing_node.cpp
 )
 
 ament_auto_add_executable(angular_velocity_offset_stop
@@ -70,22 +58,28 @@ ament_auto_add_executable(trajectory_estimator
   src/trajectory_estimator_node.cpp
 )
 
+ament_auto_add_executable(position_estimator
+  src/position_estimator_node.cpp
+)
+
 ament_auto_add_executable(velocity_estimator
   src/velocity_estimator_node.cpp
 )
 
-install(TARGETS 
+install(TARGETS
   tf_converted_imu
+  twist_relay
   correction_imu
   monitor
-  position_interpolate
   slip_coefficient
-  smoothing
-  trajectory_estimator
-  angular_velocity_offset_stop
   enable_additional_rolling
+  angular_velocity_offset_stop
+  rtk_dead_reckoning
   heading_yawrate_estimator
-  DESTINATION lib/$(PROJECT_NAME)
+  trajectory_estimator
+  position_estimator
+  velocity_estimator
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 install(DIRECTORY config launch log
